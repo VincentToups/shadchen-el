@@ -132,18 +132,35 @@ two terms, a function and a match against the result.  Got
 (defun match-literal-string (match-expression match-value body)
   `(if (string= ,match-expression ,match-value) 
 	   (progn ,@body)
-	   *match-fail*))
+	 *match-fail*))
 
 (defun match-literal-number (match-expression match-value body)
   `(if (= ,match-expression ,match-value)
 	   (progn ,@body)
-	   *match-fail*))
+	 *match-fail*))
 
 (defun match-literal-keyword (match-expression match-value body)
   `(if (eq ,match-expression ,match-value)
 	   (progn ,@body)
-	   *match-fail*))
+	 *match-fail*))
 
+(defun match-let-expander (match-expression match-value body)
+  `(let ,(cdr match-expression) ,@body))
+
+(defun match-or-expander (match-expression match-value body)
+  (cond 
+   ((length=1 (cdr match-expression))
+    `(match1 ,(cadr match-expression) ,match-value ,@body))
+   (:otherwise
+	(let* ((forms (cdr match-expression))
+		   (form (car forms))
+		   (rest (cdr forms))
+		   (nm (gensym "MATCH-OR-EXPANDER-NM-")))
+	  `(let* ((,nm ,match-value)
+			  (result (match1 ,form ,nm ,@body)))
+		 (if (not (eq *match-fail* result))
+			 result
+		   (match1 (or ,@rest) ,nm ,@body)))))))
 
 (defmacro* match1 (match-expression match-value &body body)
   (cond 
@@ -166,7 +183,9 @@ two terms, a function and a match against the result.  Got
 	  (and (match-and-expander match-expression match-value body))
 	  (? (match-?-expander match-expression match-value body))
 	  (funcall (match-funcall-expander match-expression match-value body))
+	  (or (match-or-expander match-expression match-value body))
 	  (bq (match-backquote-expander match-expression match-value body))
+	  (let (match-let-expander match-expression match-value body))
 	  (values (match-values-expander match-expression match-value body))))
    (:otherwise (error "MATCH1: Unrecognized match expression: %s." match-expression))))
 
@@ -216,11 +235,11 @@ An error is thrown when no matches are found."
 (defpattern list-rest (&rest patterns)
   (if (length=1 patterns)
 	  `(? #'listp ,(car patterns))
-	  (let ((pat (car patterns))
-			(pats (cdr patterns)))
-		`(and (funcall #'car ,pat)
-			  (funcall #'cdr 
-					   (list-rest ,@pats))))))
+	(let ((pat (car patterns))
+		  (pats (cdr patterns)))
+	  `(and (funcall #'car ,pat)
+			(funcall #'cdr 
+					 (list-rest ,@pats))))))
 
 (defun cl-struct-prepend (s)
   (intern (format "cl-struct-%s" s)))
@@ -239,6 +258,9 @@ An error is thrown when no matches are found."
 			`(funcall 
 			  #',(make-cl-struct-accessor struct-name (car f))
 			  ,(cadr f)))))
+
+(defpattern let1 (symbol value) 
+  `(let (,symbol ,value)))
 
 
 
