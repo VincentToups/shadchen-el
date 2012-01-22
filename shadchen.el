@@ -116,8 +116,7 @@ two terms, a function and a match against the result.  Got
 (defvar *extended-patterns* (make-hash-table) "Holds user declared patterns.")
 (defun extended-patternp (pattern-head) 
   "Return T if PATTERN-HEAD indicates a user provided pattern."
-  (multiple-value-bind (val in) (gethash pattern-head *extended-patterns*)
-	in))
+  (gethash pattern-head *extended-patterns*))
 
 (defun match-extended-pattern-expander (match-expression match-value body)
   (let* ((pattern-args (cdr match-expression))
@@ -261,6 +260,23 @@ An error is thrown when no matches are found."
 
 (defpattern let1 (symbol value) 
   `(let (,symbol ,value)))
+
+(defpattern vector@-no-bounds/type-check (index pattern)
+  `(funcall 
+	#'(lambda (v)
+		(aref v ,index))
+	,pattern))
+
+(defpattern vector@ (index pattern)
+  (let ((ix (gensym "vector@-ix"))
+		(v (gensym "vector@-v")))
+	`(and 
+	  (? #'vectorp ,v)
+	  (let1 ,ix ,index)
+	  (? #'(lambda (v)
+			 (< (length v) ,ix)))
+	  (vector@-no-bounds/type-check ,ix ,v))))
+
 
 
 
