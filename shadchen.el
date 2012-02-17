@@ -277,8 +277,52 @@ An error is thrown when no matches are found."
 			 (< (length v) ,ix)))
 	  (vector@-no-bounds/type-check ,ix ,v))))
 
+(defpattern one-of (pattern)
+  `(and
+	(? #'listp)
+	(funcall #'length (? (lambda (x) (> x 0))))
+	(or (funcall #'car ,pattern)
+		(funcall #'cdr (one-of ,pattern)))))
+
+(defpattern one-of-two-lists (pattern)
+  `(and
+	(? #'consp)
+	(or (funcall #'car (one-of ,pattern))
+		(funcall #'cdr (one-of ,pattern)))))
 
 
+(defun rotate-list (lst)
+  (reverse (cons (car lst) (reverse (cdr (copy-list lst))))))
+
+(defpattern list% (&rest patterns)
+  (cond
+   ((not patterns) `(? (lambda (x) (eq nil x))))
+   (:otherwise
+	(let ((pattern1 (car patterns))
+		  (rest-patterns (cdr patterns)))
+	  `(and 
+		(? #'listp)
+		(? (lambda (x) (message (format "%s" x)) (> (length x) 0)))
+		(or 
+		 (and
+		  (funcall #'car ,pattern1)
+		  (funcall #'cdr (list% ,@rest-patterns)))
+		 (list% ,@(rotate-list patterns))))))))
+
+(defpattern list%+ (&rest patterns)
+  (cond
+   ((not patterns) `(? #'listp))
+   (:otherwise
+	(let ((pattern1 (car patterns))
+		  (rest-patterns (cdr patterns)))
+	  `(and 
+		(? #'listp)
+		(? (lambda (x) (message (format "%s" x)) (> (length x) 0)))
+		(or 
+		 (and
+		  (funcall #'car ,pattern1)
+		  (funcall #'cdr (list% ,@rest-patterns)))
+		 (funcall #'rotate-list (list% ,@patterns))))))))
 
 
 (provide 'shadchen)
