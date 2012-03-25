@@ -324,6 +324,30 @@ An error is thrown when no matches are found."
 		  (funcall #'cdr (list% ,@rest-patterns)))
 		 (funcall #'rotate-list (list% ,@patterns))))))))
 
-
+(defmacro* match-let ((&rest binders) &body body)
+  "Like let but the left-hand-side of each binder pair can be a
+shadchen-pattern."
+  (let ((patterns (mapcar #'car binders))
+		(recursion-sigil (gensym "recursion-sigil-"))
+		(recur-args (gensym "recur-args-"))
+		(recur-results (gensym "recur-results-"))
+		(final-result (gensym "final-result-"))
+		(value-expressions
+		 (mapcar #'cadr binders)))
+	`(labels ((recur (&rest ,recur-args)
+					 (cons ',recursion-sigil ,recur-args)))
+	   (loop with ,recur-results = 
+			 (match (list ,@value-expressions)
+					((list ,@patterns)
+					 ,@body))
+			 while (and (listp ,recur-results)
+						 (eq (car ,recur-results) ',recursion-sigil))
+			   do 
+			   (setq ,recur-results 
+					 (match (cdr ,recur-results)
+							((list ,@patterns)
+							 ,@body)))
+			   finally 
+			   (return ,recur-results)))))
 (provide 'shadchen)
 
