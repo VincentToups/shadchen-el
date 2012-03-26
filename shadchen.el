@@ -326,7 +326,12 @@ An error is thrown when no matches are found."
 
 (defmacro* match-let ((&rest binders) &body body)
   "Like let but the left-hand-side of each binder pair can be a
-shadchen-pattern."
+shadchen-pattern.  Within a match-let body, the phrase `(recur
+arg1 ...)  can be used to trigger a trampolined re-entry into the
+match, but only in tail position.  
+
+At the moment, this is not checked at compile time, so unexpected
+results can occur if `recur` is used in another position."
   (let ((patterns (mapcar #'car binders))
 		(recursion-sigil (gensym "recursion-sigil-"))
 		(recur-args (gensym "recur-args-"))
@@ -349,5 +354,6 @@ shadchen-pattern."
 							 ,@body)))
 			   finally 
 			   (return ,recur-results)))))
+
 (provide 'shadchen)
 
