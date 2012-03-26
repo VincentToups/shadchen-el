@@ -158,6 +158,35 @@ Will result in `(1 (2 3))` but
 Will produce `(1 (4))`.  Note that a similar functionality can be
 provided with `funcall`.
 
+Match-let
+---------
+
+Match let is a form which behaves identically to a let expression
+with two extra features: first, the each variable can be an arbitrary
+shadchen pattern and secondly, one can invoke `recur` in any tail
+position of the body to induce a trampolined re-entry into the let
+expression, so that self-recursive loops can be implemented without
+blowing the stack.
+
+eg:
+
+    (match-let 
+     (((list x y) (list 0 0)))
+     (if (< (+ x y) 100)
+         (recur (list (+ x 1) (+ y x)))
+       (list x y)))
+
+Will result in `(14 91)`.
+
+If you like this feature, please let me know if you would like it to
+check that `recur` is in tail position.  This is an expensive step
+which requires walking the body after macro-expansion, which may also
+introduce subtle bugs.  The upside of doing this is that you avoid the
+possibly strange bugs encountered when `recur` is invoked in a
+non-tail position.
+
+User feedback will vary how I approach this. 
+
 
 Extending shadchen
 ------------------
