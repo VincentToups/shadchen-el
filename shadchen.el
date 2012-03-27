@@ -8,6 +8,13 @@
 (defstruct match-fail-struct)
 
 (defvar *match-fail* (make-match-fail-struct))
+(defvar *shadchen-binding-mode* :dynamic)
+(defun adjust-let-for-mode (input)
+  (case input
+	(let 'lexical-let)
+	(let* 'lexical-let*)
+	(t 
+	 (error "adjust-let-for-mode expects let or let*."))))
 
 (defun non-keyword-symbol (o)
   (and (symbolp o)
@@ -164,7 +171,7 @@ two terms, a function and a match against the result.  Got
 (defmacro* match1 (match-expression match-value &body body)
   (cond 
    ((non-keyword-symbol match-expression)
-	`(let ((,match-expression ,match-value))
+	`(,(adjust-let-for-mode 'let) ((,match-expression ,match-value))
 	   ,@body))
    ((stringp match-expression) 
 	(match-literal-string match-expression match-value body))
