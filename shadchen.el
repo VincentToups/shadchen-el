@@ -51,7 +51,8 @@
 	   (if (listp ,name)
 		   (match1 ,car-match (car ,name)
 				   (match1 ,cdr-match (cdr ,name)
-						   ,@body))))))
+						   ,@body))
+		 *match-fail*))))
 
 (defun match-quote-expander (match-expression match-value body)
   `(if (equalp ,match-expression ,match-value) (progn ,@body) *match-fail*))
@@ -175,6 +176,8 @@ two terms, a function and a match against the result.  Got
 
 (defmacro* match1 (match-expression match-value &body body)
   (cond 
+   ((not match-expression)
+	(match-list-expander '(list) match-value body))
    ((non-keyword-symbol match-expression)
 	`(,(adjust-let-for-mode 'let) ((,match-expression ,match-value))
 	  ,@body))
@@ -187,17 +190,19 @@ two terms, a function and a match against the result.  Got
    ((extended-patternp (car match-expression)) 
 	(match-extended-pattern-expander match-expression match-value body))
    ((listp match-expression)
-	(case (car match-expression)
-	  (list (match-list-expander match-expression match-value body))
-	  (cons (match-cons-expander match-expression match-value body))
-	  (quote (match-quote-expander match-expression match-value body))
-	  (and (match-and-expander match-expression match-value body))
-	  (? (match-?-expander match-expression match-value body))
-	  (funcall (match-funcall-expander match-expression match-value body))
-	  (or (match-or-expander match-expression match-value body))
-	  (bq (match-backquote-expander match-expression match-value body))
-	  (let (match-let-expander match-expression match-value body))
-	  (values (match-values-expander match-expression match-value body))))
+	(if match-expression 
+		(case (car match-expression)
+		  (list (match-list-expander match-expression match-value body))
+		  (cons (match-cons-expander match-expression match-value body))
+		  (quote (match-quote-expander match-expression match-value body))
+		  (and (match-and-expander match-expression match-value body))
+		  (? (match-?-expander match-expression match-value body))
+		  (funcall (match-funcall-expander match-expression match-value body))
+		  (or (match-or-expander match-expression match-value body))
+		  (bq (match-backquote-expander match-expression match-value body))
+		  (let (match-let-expander match-expression match-value body))
+		  (values (match-values-expander match-expression match-value body)))
+	  (match-list-expander '(list) match-value body)))
    (:otherwise (error "MATCH1: Unrecognized match expression: %s." match-expression))))
 
 (defmacro* match-helper (value &body forms)
@@ -241,7 +246,7 @@ An error is thrown when no matches are found.  Bindings are
 lexical via cl.el's lexical let.  An alternative is to use Emacs
 24's lexical binding mode and use regular match."
   (let ((*shadchen-binding-mode* :lexical))
-	 (macroexpand-all `(match value ,@forms))))
+	(macroexpand-all `(match value ,@forms))))
 
 (defmacro* match-lambda (&body forms) 
   "Like MATCH except the VALUE is curried."
@@ -410,6 +415,93 @@ to use Emacs 24 & >'s lexical binding mode with regular match-let."
 						   ,@body)))
 			 finally 
 			 (return ,recur-results)))))
+
+(defvar *match-function-table* (make-hash-table))
+(defvar *match-function-doc-table* (make-hash-table))
+
+(defun match-fboundp (symbol)
+  "Returns T when symbol is a function and a match function."
+  (and (fboundp symbol)
+	   (gethash symbol *match-function-table*)))
+
+
+(defun extend-match-function (symbol function pattern &optional doc)
+  "Extends the match function represented by symbol with the function FUNCTION."
+  (let ((functions (gethash symbol *match-function-table*)))
+	(puthash symbol (reverse (cons function functions)) *match-function-table*)
+	(if doc 
+		(let ((current-doc (gethash symbol *match-function-doc-table* "")))
+		  (puthash symbol 
+				   (concat current-doc
+						   (format "\n%S : %s" pattern doc))
+				   *match-function-doc-table*)))
+	symbol))
+
+(eval-when-compile 
+  (defmacro* shadchen:let/named (name bindings &body body)
+	(let ((arg-names (mapcar #'car bindings))
+		  (init-vals (mapcar #'cadr bindings))
+		  (results (gensym "results-"))
+		  (once (gensym "once-"))
+		  (done (gensym "done-"))
+		  (sigil (gensym "let/named-sigil-")))
+	  `(labels ((,once ,arg-names ,@body)
+				(,name ,arg-names 
+					   (list ',sigil ,@arg-names)))
+		 (loop with 
+			   ,results = (,once ,@init-vals) 
+			   while (and (listp ,results)
+						  (eq (car ,results)
+							  ',sigil)) do
+							  (setq ,results (apply #',once (cdr ,results)))
+							  finally (return ,results))))))
+
+(defun make-defun-match-unbound (name)
+  "Make the match function represented by the symbol NAME unbound."
+  (puthash name nil *match-function-doc-table*)
+  (puthash name nil *match-function-table*)
+  (fmakunbound name))
+
+(defmacro* defun-match (name patterns &body body)
+  "Create a function which dispatches to various bodies via
+pattern matching.  Multiple bodies can be specified across
+several invokations of 'defun-match' and the matching body will
+be executed (patterns are checked in the order of definition.)
+
+If no patterns match, then an error indicating the failure of a
+match is raised.
+
+If the first item in BODY is a string, it is added to the
+documentation for the whole function, along with the associated
+pattern."
+  (let ((args (gensym "defun-match-arg-list-"))
+		(inner-arg (gensym "defun-match-inner-args-"))
+		(true-body (if (stringp (car body)) (cdr body) body))
+		(doc (if (stringp (car body)) (car body) ""))
+		(fun (gensym "defun-match-fun-"))
+		(val (gensym "defun-match-val-"))
+		(result (gensym "defun-match-result-"))
+		(recur (gensym "recur-point-"))
+		(possibles (gensym "defun-match-possibles-")))
+	`(progn 
+	   (extend-match-function ',name 
+							  (lambda (,inner-arg)
+								(match1 (list ,@patterns) ,inner-arg ,@true-body))
+							  ',patterns
+							  ,doc)
+	   (defalias ',name (lambda (&rest ,args)
+						  (shadchen:let/named 
+						   ,recur
+						   ((,possibles (gethash ',name *match-function-table*)))
+						   (cond 
+							((not ,possibles) (error "Match fail for matching defun %s with arguments %S." ',name ,args))
+							(:otherwise
+							 (let* ((,fun (car ,possibles))
+									(,val (funcall ,fun ,args)))
+							   (if (not (eq *match-fail* ,val)) ,val
+								 (,recur (cdr ,possibles))))))))
+		 (gethash ',name *match-function-doc-table*)))))
+
 
 (provide 'shadchen)
 
