@@ -10,11 +10,16 @@
 (defvar *match-fail* (make-match-fail-struct))
 (defvar *shadchen-binding-mode* :dynamic)
 (defun adjust-let-for-mode (input)
-  (case input
-	(let 'lexical-let)
-	(let* 'lexical-let*)
-	(t 
-	 (error "adjust-let-for-mode expects let or let*."))))
+  (case *shadchen-binding-mode*
+	(:lexical (case input
+				(let 'lexical-let)
+				(let* 'lexical-let*)
+				(t 
+				 (error "adjust-let-for-mode expects let or let*."))))
+	(:dynamic input)))
+
+(let ((*shadchen-binding-mode* :lexical))
+  (adjust-let-for-mode 'let)) 
 
 (defun non-keyword-symbol (o)
   (and (symbolp o)
@@ -151,7 +156,7 @@ two terms, a function and a match against the result.  Got
 	 *match-fail*))
 
 (defun match-let-expander (match-expression match-value body)
-  `(let ,(cdr match-expression) ,@body))
+  `(,(adjust-let-for-mode 'let) ,(cdr match-expression) ,@body))
 
 (defun match-or-expander (match-expression match-value body)
   (cond 
@@ -172,7 +177,7 @@ two terms, a function and a match against the result.  Got
   (cond 
    ((non-keyword-symbol match-expression)
 	`(,(adjust-let-for-mode 'let) ((,match-expression ,match-value))
-	   ,@body))
+	  ,@body))
    ((stringp match-expression) 
 	(match-literal-string match-expression match-value body))
    ((numberp match-expression)
@@ -227,6 +232,14 @@ An error is thrown when no matches are found."
 	`(let ((,name ,value)) 
 	   (match-helper ,name ,@forms))))
 
+(defmacro* lexical-match (value &body forms)
+  "Attempt to match VALUE against each of the patterns in the CAR of
+FORMS.  When a match is detected, its subsequent forms are executed as
+in a PROGN where the bindings implied by the match are in effect.  
+
+An error is thrown when no matches are found."
+  (let ((*shadchen-binding-mode* :lexical))
+	 (macroexpand-all `(match value ,@forms))))
 
 (defmacro* match-lambda (&body forms) 
   "Like MATCH except the VALUE is curried."
