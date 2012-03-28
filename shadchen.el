@@ -237,7 +237,9 @@ An error is thrown when no matches are found."
 FORMS.  When a match is detected, its subsequent forms are executed as
 in a PROGN where the bindings implied by the match are in effect.  
 
-An error is thrown when no matches are found."
+An error is thrown when no matches are found.  Bindings are
+lexical via cl.el's lexical let.  An alternative is to use Emacs
+24's lexical binding mode and use regular match."
   (let ((*shadchen-binding-mode* :lexical))
 	 (macroexpand-all `(match value ,@forms))))
 
@@ -363,6 +365,40 @@ results can occur if `recur` is used in another position."
 					 (cons ',recursion-sigil ,recur-args)))
 	   (loop with ,recur-results = 
 			 (match (list ,@value-expressions)
+					((list ,@patterns)
+					 ,@body))
+			 while (and (listp ,recur-results)
+						 (eq (car ,recur-results) ',recursion-sigil))
+			   do 
+			   (setq ,recur-results 
+					 (match (cdr ,recur-results)
+							((list ,@patterns)
+							 ,@body)))
+			   finally 
+			   (return ,recur-results)))))
+
+(defmacro* lexical-match-let ((&rest binders) &body body)
+  "Like let but the left-hand-side of each binder pair can be a
+shadchen-pattern.  Within a match-let body, the phrase `(recur
+arg1 ...)  can be used to trigger a trampolined re-entry into the
+match, but only in tail position.  
+
+At the moment, this is not checked at compile time, so unexpected
+results can occur if `recur` is used in another position.
+
+Bindings are lexical via cl.el's lexical-let.  An alternative is
+to use Emacs 24 & >'s lexical binding mode with regular match-let."
+  (let ((patterns (mapcar #'car binders))
+		(recursion-sigil (gensym "recursion-sigil-"))
+		(recur-args (gensym "recur-args-"))
+		(recur-results (gensym "recur-results-"))
+		(final-result (gensym "final-result-"))
+		(value-expressions
+		 (mapcar #'cadr binders)))
+	`(labels ((recur (&rest ,recur-args)
+					 (cons ',recursion-sigil ,recur-args)))
+	   (loop with ,recur-results = 
+			 (lexical-match (list ,@value-expressions)
 					((list ,@patterns)
 					 ,@body))
 			 while (and (listp ,recur-results)
