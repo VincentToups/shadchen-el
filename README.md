@@ -187,6 +187,24 @@ non-tail position.
 
 User feedback will vary how I approach this. 
 
+defun-match
+-----------
+
+This special form allows the definition of functions using pattern
+matching where bodies can be specified over multiple `defun-match`
+invokations:
+
+    (defun-match prod-fun (nil) "The empty product." 1)
+    (defun-match prod-fun (nil acc) "Recursion termination." acc)
+    (defun-match prod-fun ((cons x rest) acc)
+     "One recursive step."
+     (prod rest (* acc x)))
+    (defun-match prod-fun ((? #'listp lst))
+     "Sum a list of numbers."
+     (prod lst 1))
+
+At some point, the bodies of defun-match definitions will be able to
+`recur` to themselves.  
 
 Extending shadchen
 ------------------
