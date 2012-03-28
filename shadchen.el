@@ -368,14 +368,14 @@ results can occur if `recur` is used in another position."
 					((list ,@patterns)
 					 ,@body))
 			 while (and (listp ,recur-results)
-						 (eq (car ,recur-results) ',recursion-sigil))
-			   do 
-			   (setq ,recur-results 
-					 (match (cdr ,recur-results)
-							((list ,@patterns)
-							 ,@body)))
-			   finally 
-			   (return ,recur-results)))))
+						(eq (car ,recur-results) ',recursion-sigil))
+			 do 
+			 (setq ,recur-results 
+				   (match (cdr ,recur-results)
+						  ((list ,@patterns)
+						   ,@body)))
+			 finally 
+			 (return ,recur-results)))))
 
 (defmacro* lexical-match-let ((&rest binders) &body body)
   "Like let but the left-hand-side of each binder pair can be a
@@ -399,17 +399,17 @@ to use Emacs 24 & >'s lexical binding mode with regular match-let."
 					 (cons ',recursion-sigil ,recur-args)))
 	   (loop with ,recur-results = 
 			 (lexical-match (list ,@value-expressions)
-					((list ,@patterns)
-					 ,@body))
-			 while (and (listp ,recur-results)
-						 (eq (car ,recur-results) ',recursion-sigil))
-			   do 
-			   (setq ,recur-results 
-					 (match (cdr ,recur-results)
 							((list ,@patterns)
-							 ,@body)))
-			   finally 
-			   (return ,recur-results)))))
+							 ,@body))
+			 while (and (listp ,recur-results)
+						(eq (car ,recur-results) ',recursion-sigil))
+			 do 
+			 (setq ,recur-results 
+				   (match (cdr ,recur-results)
+						  ((list ,@patterns)
+						   ,@body)))
+			 finally 
+			 (return ,recur-results)))))
 
 (provide 'shadchen)
 
