@@ -174,6 +174,52 @@ two terms, a function and a match against the result.  Got
 			 result
 		   (match1 (or ,@rest) ,nm ,@body)))))))
 
+(defun shadchen:mapcat (f lst)
+  "Concatenate the results of applying f to each element in lst."
+  (loop for item in lst append (funcall f item)))
+
+(defun calc-pattern-bindings-extended (expr)
+  "Calculate the bound symbols of a user defined pattern."
+  (let* ((pattern-args (cdr expr))
+		 (pattern-fun (gethash (car expr) *extended-patterns*))
+		 (expansion (apply pattern-fun pattern-args)))
+	(calc-pattern-bindings-extended expansion)))
+
+(defun calc-backquote-bindings (expr)
+  "Calculate the bindings for a backquote expression."
+  (loop for sub in (cdr expr) 
+		when (and (listp sub)
+				  (eq (car sub) 'uq))
+		append 
+		(calc-pattern-bindings (cadr sub))))
+
+(defun calc-pattern-bindings (expr)
+  "Given a shadchen pattern EXPR return a list of symbols bound
+by that expression."
+  (cond 
+   ((non-keyword-symbol expr)
+	(list expr))
+   ((or (not expr)
+		(symbolp expr)
+		(numberp expr)
+		(stringp expr)) nil)
+   ((extended-patternp (car expr))
+	(calc-pattern-bindings-extended expr))
+   ((listp expr)
+	(case (car expr)
+	  (quote nil)
+	  ((list and values) 
+	   (shadchen:mapcat #'calc-pattern-bindings (cdr expr)))
+	  (cons (append (calc-pattern-bindings (car expr))
+					(calc-pattern-bindings (cdr expr))))
+	  ((? funcall) (if (= 2 (length expr)) nil
+					 (calc-pattern-bindings (elt expr 2))))
+	  (or (calc-pattern-bindings (cadr expr)))
+	  (bq (calc-backquote-bindings expr))
+	  (let (mapcar #'car (cdr expr)))))
+   (:otherwise 
+	(error "calc-pattern-bindings: unrecognized pattern %S." expr))))
+
 (defmacro* match1 (match-expression match-value &body body)
   (cond 
    ((not match-expression)
