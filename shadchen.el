@@ -331,7 +331,7 @@ arg1 ...)  can be used to trigger a trampolined re-entry into the
 match, but only in tail position.  
 
 At the moment, this is not checked at compile time, so unexpected
-results can occur if `recur` is used in another position."
+results can occur if `recur` is used in another position.s"
   (let ((patterns (mapcar #'car binders))
 		(recursion-sigil (gensym "recursion-sigil-"))
 		(recur-args (gensym "recur-args-"))
