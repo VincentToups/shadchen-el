@@ -242,7 +242,7 @@ by that expression."
 		  (cons (match-cons-expander match-expression match-value body))
 		  (quote (match-quote-expander match-expression match-value body))
 		  (and (match-and-expander match-expression match-value body))
-		  (? (match-?-expander match-expression match-value body))
+		  ((? p) (match-?-expander match-expression match-value body))
 		  (funcall (match-funcall-expander match-expression match-value body))
 		  (or (match-or-expander match-expression match-value body))
 		  (bq (match-backquote-expander match-expression match-value body))
@@ -508,6 +508,28 @@ to use Emacs 24 & >'s lexical binding mode with regular match-let."
   (puthash name nil *match-function-table*)
   (fmakunbound name))
 
+(defvar *shadchen-recur-sigils* (make-hash-table) "Ensure
+different bodies of the same shadchen pattern function get the
+same recursion markets.")
+
+(defun get-recur-sigil-for (function-name)
+  "Fetch the recursion sigil for the match function function-name."
+  (let ((s (gethash function-name *shadchen-recur-sigils*)))
+	(if s s
+	  (prog1
+		  s
+		(puthash 
+		 function-name 
+		 (gensym (format "defun-match-recur-sigil-for-%s-" function-name))
+		 *shadchen-recur-sigils*)))))
+
+(defmacro* defun-match- (name pattern &body body)
+  "Identical to defun-match- except makes any previous
+defun-match definitions unbound before defun'ing the function."
+  `(progn 
+	 (make-defun-match-unbound ',name)
+	 (defun-match ,name ,pattern ,@body)))
+
 (defmacro* defun-match (name patterns &body body)
   "Create a function which dispatches to various bodies via
 pattern matching.  Multiple bodies can be specified across
@@ -522,12 +544,14 @@ documentation for the whole function, along with the associated
 pattern."
   (let ((args (gensym "defun-match-arg-list-"))
 		(inner-arg (gensym "defun-match-inner-args-"))
-		(true-body (if (stringp (car body)) (cdr body) body))
+		(true-body body)
 		(doc (if (stringp (car body)) (car body) ""))
 		(fun (gensym "defun-match-fun-"))
 		(val (gensym "defun-match-val-"))
 		(result (gensym "defun-match-result-"))
 		(recur (gensym "recur-point-"))
+		(inner-recur-args (gensym "defun-match-inner-recur-args-"))
+		(inner-recur-sigil (get-recur-sigil-for name))
 		(possibles (gensym "defun-match-possibles-")))
 	`(progn 
 	   (extend-match-function ',name 
@@ -536,16 +560,24 @@ pattern."
 							  ',patterns
 							  ,doc)
 	   (defalias ',name (lambda (&rest ,args)
-						  (shadchen:let/named 
-						   ,recur
-						   ((,possibles (gethash ',name *match-function-table*)))
-						   (cond 
-							((not ,possibles) (error "Match fail for matching defun %s with arguments %S." ',name ,args))
-							(:otherwise
-							 (let* ((,fun (car ,possibles))
-									(,val (funcall ,fun ,args)))
-							   (if (not (eq *match-fail* ,val)) ,val
-								 (,recur (cdr ,possibles))))))))
+						  (flet ((recur (&rest ,inner-recur-args)
+										(list ',inner-recur-sigil ,inner-recur-args)))
+							(shadchen:let/named 
+							 ,recur
+							 ((,possibles (gethash ',name *match-function-table*)))
+							 (cond 
+							  ((not ,possibles) (error "Match fail for matching defun %s with arguments %S." ',name ,args))
+							  (:otherwise
+							   (let* ((,fun (car ,possibles))
+									  (,val (funcall ,fun ,args)))
+								 (cond 
+								  ((eq *match-fail* ,val)
+								   (,recur (cdr ,possibles)))
+								  ((and (listp ,val)
+										(eq (car ,val) ',inner-recur-sigil))
+								   (setq ,args (cadr ,val))
+								   (,recur (gethash ',name *match-function-table*)))
+								  (:otherwise ,val))))))))
 		 (gethash ',name *match-function-doc-table*)))))
 
 
