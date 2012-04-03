@@ -58,7 +58,7 @@ Shadchen supports the following built-in patterns.
 Matches anything, binding <SYMBOL> to that value in the body
 expressions.
 
-    <KEYwORD-LITERAL> 
+    <KEYWORD-LITERAL> 
 
 Matches only when the value is the same keyword.
 
