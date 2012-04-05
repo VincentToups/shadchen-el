@@ -304,6 +304,11 @@ lexical via cl.el's lexical let.  An alternative is to use Emacs
   (and (consp lst)
 	   (not (cdr lst))))
 
+(defun length=0 (lst)
+  "Returns T when LST has one element."
+  (and (consp lst)
+	   (not lst)))
+
 (defpattern list-rest (&rest patterns)
   (if (length=1 patterns)
 	  `(? #'listp ,(car patterns))
@@ -580,6 +585,67 @@ pattern."
 								  (:otherwise ,val))))))))
 		 (gethash ',name *match-function-doc-table*)))))
 
+(defpattern simple-concat (&rest patterns)
+  (cond 
+   ((length=0 patterns)
+	"")
+   ((length=1 patterns)
+	`(? #'stringp ,(car patterns)))
+   (:otherwise
+	(let* ((the-string (car patterns))
+		   (static-len (length the-string))
+		   (s (gensym "concat-match-s-"))
+		   (prefix (gensym "concat-match-prefix-"))
+		   (postfix (gensym "concat-match-postfix-")))
+	  `(and 
+		(p #'stringp)
+		(p (lambda (s)
+			 (>= (length s) ,static-len)))
+		(p 
+		 (lambda (s)
+		   (string= (substring s 0 ,static-len) ,the-string)))
+		(funcall (lambda (s)
+				   (substring s ,static-len))
+				 (concat ,@(cdr patterns))))))))
+
+
+(defpattern full-concat (pivot &rest patterns)
+  (assert (numberp pivot)
+		  ()
+		  "Pivot should be a number.")
+  (cond 
+   ((length=0 patterns)
+	"")
+   ((length=1 patterns)
+	`(? #'stringp ,(car patterns)))
+   (:otherwise
+	`(and 
+	  (p (lambda (s)
+		   (>= (length s) ,pivot)))
+	  (or 
+	   (and (funcall
+			 (lambda (s)
+			   (substring s 0 ,pivot))
+			 ,(car patterns))
+			(funcall 
+			 (lambda (s)
+			   (substring s ,pivot))
+			 (concat ,@(cdr patterns))))
+	   (full-concat ,(+ pivot 1) ,@patterns))))))
+
+
+(defpattern concat (&rest patterns)
+  (cond 
+   ((length=0 patterns)
+	"")
+   ((length=1 patterns)
+	`(? #'stringp ,(car patterns)))
+   (:otherwise
+	(cond 
+	 ((stringp (car patterns))
+	  `(simple-concat ,@patterns))
+	 (:otherwise 
+	  `(full-concat 0 ,@patterns))))))
 
 (provide 'shadchen)
 

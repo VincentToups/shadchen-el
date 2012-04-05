@@ -158,6 +158,27 @@ Will result in `(1 (2 3))` but
 Will produce `(1 (4))`.  Note that a similar functionality can be
 provided with `funcall`.
 
+    (concat P1 ... PN)
+
+Concat is a powerful string matching pattern.  If each pattern is a
+string, its behavior is simple: it simply matches the string that is
+the concatenation of the pattern strings.  
+
+If any of the patterns are a more complex pattern, then, starting from
+the left-most pattern, the shortest substring matching the first
+pattern is matched, ad then matching proceeds on the subsequent
+patterns and the unmatched part of the string.  Eg:
+
+    (match "bobcatdog" 
+     ((concat 
+       (and (or "bobcat" "cat") which) 
+       "dog") which))
+
+will produce "bobcat", but the pattern will also match "catdog",
+returning "cat".
+
+This is a handy pattern for simple parsers.
+
 Match-let
 ---------
 
