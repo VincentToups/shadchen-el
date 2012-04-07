@@ -1,6 +1,9 @@
-
-;;;; shadchen.lisp
-
+;;; shadchen.lisp
+;; Version: 1.0
+;; Author: Vincent Toups
+;; Maintainer: Vincent Toups
+;; Tags: pattern matching, functional programming
+ 
 ;;; Copyright 2012, Vincent Toups
 ;;; This program is distributed under the terms of the GNU Lesser 
 ;;; General Public License (see license.txt).
@@ -593,10 +596,7 @@ pattern."
 	`(? #'stringp ,(car patterns)))
    (:otherwise
 	(let* ((the-string (car patterns))
-		   (static-len (length the-string))
-		   (s (gensym "concat-match-s-"))
-		   (prefix (gensym "concat-match-prefix-"))
-		   (postfix (gensym "concat-match-postfix-")))
+		   (static-len (length the-string)))
 	  `(and 
 		(p #'stringp)
 		(p (lambda (s)
@@ -649,3 +649,4 @@ pattern."
 
 (provide 'shadchen)
 
+;;; shadchen.lisp ends here
