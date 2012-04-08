@@ -167,7 +167,8 @@ the concatenation of the pattern strings.
 If any of the patterns are a more complex pattern, then, starting from
 the left-most pattern, the shortest substring matching the first
 pattern is matched, ad then matching proceeds on the subsequent
-patterns and the unmatched part of the string.  Eg:
+patterns and the unmatched part of the string.  If this fails, a
+longer initial match is searched for.  Eg:
 
     (match "bobcatdog" 
      ((concat 
@@ -178,6 +179,10 @@ will produce "bobcat", but the pattern will also match "catdog",
 returning "cat".
 
 This is a handy pattern for simple parsers.
+
+    (append P1 ... PN)
+
+Like `concat` except for lists rather than strings.
 
 Match-let
 ---------

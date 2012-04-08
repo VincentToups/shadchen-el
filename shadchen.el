@@ -191,6 +191,10 @@
 ;;
 ;; This is a handy pattern for simple parsers.
 ;;
+;;     (append P1 ... PN)
+;;
+;; Like `concat` except for lists rather than strings.
+;;
 ;; Match-let
 ;; ---------
 ;;
@@ -936,6 +940,30 @@ pattern."
 	  `(simple-concat ,@patterns))
 	 (:otherwise 
 	  `(full-concat 0 ,@patterns))))))
+
+(defpattern append-helper (head-pattern tail-patterns)
+  `(or 
+	(cons ,head-pattern (append ,@tail-patterns))
+	(and 
+	 (p #'(lambda (l) (cdr l)))
+	 (funcall 
+	  (lambda (p)
+		(let ((candidate (car p))
+			  (rest (cdr p)))
+		  (cons (reverse (cons (car rest) (reverse candidate)))
+				(cdr rest))))
+	  (append-helper ,head-pattern ,tail-patterns)))))
+
+(defpattern append (&rest patterns)
+  (cond 
+   ((length=0 patterns) nil)
+   ((length=1 patterns)
+	`(and (p #'listp ,(car patterns))))
+   (:otherwise
+	(let ((hd (car patterns))
+		  (rest (cdr patterns)))
+	  `(funcall (lambda (l) 
+				  (cons nil l)) (append-helper ,hd ,rest))))))
 
 (provide 'shadchen)
 
