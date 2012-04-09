@@ -58,7 +58,7 @@ Shadchen supports the following built-in patterns.
 Matches anything, binding <SYMBOL> to that value in the body
 expressions.
 
-    <KEYwORD-LITERAL> 
+    <KEYWORD-LITERAL> 
 
 Matches only when the value is the same keyword.
 
@@ -158,6 +158,32 @@ Will result in `(1 (2 3))` but
 Will produce `(1 (4))`.  Note that a similar functionality can be
 provided with `funcall`.
 
+    (concat P1 ... PN)
+
+Concat is a powerful string matching pattern.  If each pattern is a
+string, its behavior is simple: it simply matches the string that is
+the concatenation of the pattern strings.  
+
+If any of the patterns are a more complex pattern, then, starting from
+the left-most pattern, the shortest substring matching the first
+pattern is matched, ad then matching proceeds on the subsequent
+patterns and the unmatched part of the string.  If this fails, a
+longer initial match is searched for.  Eg:
+
+    (match "bobcatdog" 
+     ((concat 
+       (and (or "bobcat" "cat") which) 
+       "dog") which))
+
+will produce "bobcat", but the pattern will also match "catdog",
+returning "cat".
+
+This is a handy pattern for simple parsers.
+
+    (append P1 ... PN)
+
+Like `concat` except for lists rather than strings.
+
 Match-let
 ---------
 
@@ -194,17 +220,32 @@ This special form allows the definition of functions using pattern
 matching where bodies can be specified over multiple `defun-match`
 invokations:
 
-    (defun-match prod-fun (nil) "The empty product." 1)
-    (defun-match prod-fun (nil acc) "Recursion termination." acc)
-    (defun-match prod-fun ((cons x rest) acc)
-     "One recursive step."
-     (prod rest (* acc x)))
-    (defun-match prod-fun ((? #'listp lst))
-     "Sum a list of numbers."
-     (prod lst 1))
 
-At some point, the bodies of defun-match definitions will be able to
-`recur` to themselves.  
+    (defun-match- product (nil)
+       "The empty product."
+       1)
+    
+    (defun-match product (nil acc)
+       "Recursion termination."
+       acc)
+    
+    (defun-match product 
+        ((cons (p #'numberp n)
+               (p #'listp rest))
+         (p #'numberp acc))
+       "Main body of the product function."
+       (recur rest (* n acc)))
+    
+    (defun-match product (lst)
+       "Calculate the product of the numbers in LST."
+       (recur lst 1))
+
+Note that different bodies can `recur` to eachother without growing
+the stack.  Documentation for each body is accumulated, along with the
+pattern associated with the body, into the function's complete
+documentation.
+
+  
 
 Extending shadchen
 ------------------
