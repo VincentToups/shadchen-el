@@ -774,7 +774,7 @@ to use Emacs 24 & >'s lexical binding mode with regular match-let."
 (defun extend-match-function (symbol function pattern &optional doc)
   "Extends the match function represented by symbol with the function FUNCTION."
   (let ((functions (gethash symbol *match-function-table*)))
-	(puthash symbol (reverse (cons function functions)) *match-function-table*)
+	(puthash symbol (reverse (cons function (reverse functions))) *match-function-table*)
 	(if doc 
 		(let ((current-doc (gethash symbol *match-function-doc-table* "")))
 		  (puthash symbol 
@@ -783,7 +783,7 @@ to use Emacs 24 & >'s lexical binding mode with regular match-let."
 				   *match-function-doc-table*)))
 	symbol))
 
-(eval-when-compile 
+(eval-when (compile load eval)
   (defmacro* shadchen:let/named (name bindings &body body)
 	(let ((arg-names (mapcar #'car bindings))
 		  (init-vals (mapcar #'cadr bindings))
@@ -964,6 +964,14 @@ pattern."
 		  (rest (cdr patterns)))
 	  `(funcall (lambda (l) 
 				  (cons nil l)) (append-helper ,hd ,rest))))))
+
+(defmacro* match-lambda (&body body)
+  "Produce a lambda accepting a single argument and exectuting
+the matching expression from the body."
+  (let ((arg (gensym "arg-")))
+	`(lambda (,arg)
+	   (match ,arg 
+			  ,@body))))
 
 (provide 'shadchen)
 
