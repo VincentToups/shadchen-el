@@ -4,7 +4,7 @@
 ;; Author: Vincent Toups
 ;; Maintainer: Vincent Toups
 ;; Tags: pattern matching, functional programming
- 
+
 ;;; Copyright 2012, Vincent Toups
 ;;; This program is distributed under the terms of the GNU Lesser 
 ;;; General Public License (see license.txt).
@@ -298,7 +298,7 @@
 ;;
 ;; [shadchen-el]:https://github.com/VincentToups/emacs-utils/blob/master/shadchen.el
 ;;
- 
+
 
 (defstruct match-fail-struct)
 
@@ -609,9 +609,11 @@ lexical via cl.el's lexical let.  An alternative is to use Emacs
 	  `(? #'listp ,(car patterns))
 	(let ((pat (car patterns))
 		  (pats (cdr patterns)))
-	  `(and (funcall #'car ,pat)
-			(funcall #'cdr 
-					 (list-rest ,@pats))))))
+	  `(and 
+		(p #'listp)
+		(funcall #'car ,pat)
+		(funcall #'cdr 
+				 (list-rest ,@pats))))))
 
 (defun cl-struct-prepend (s)
   (intern (format "cl-struct-%s" s)))
