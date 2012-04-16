@@ -316,6 +316,21 @@
 (let ((*shadchen-binding-mode* :lexical))
   (adjust-let-for-mode 'let)) 
 
+(defun shadchen:replace-colons (o with)
+  (cond ((eq o ':) with)
+		((listp o) (mapcar (lambda (o)
+							 (shadchen:replace-colons o with)) o))
+		(:otherwise o)))
+
+(defun shadchen:pprint-to-string (form)
+  "Pretty print form to a string."
+  (let ((sym (gensym)))
+	(replace-regexp-in-string (regexp-quote (format "%s" sym))
+							  ":" 
+							  (with-temp-buffer 
+								(cl-prettyprint (shadchen:replace-colons form sym))
+								(buffer-substring (point-min) (point-max))))))
+
 (defun non-keyword-symbol (o)
   (and (symbolp o)
 	   (not (keywordp o))))
@@ -781,7 +796,7 @@ to use Emacs 24 & >'s lexical binding mode with regular match-let."
 		(let ((current-doc (gethash symbol *match-function-doc-table* "")))
 		  (puthash symbol 
 				   (concat current-doc
-						   (format "\n%S : %s" pattern doc))
+						   (format "%s : %s" (shadchen:pprint-to-string pattern) doc))
 				   *match-function-doc-table*)))
 	symbol))
 
