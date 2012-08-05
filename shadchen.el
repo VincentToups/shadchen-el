@@ -302,6 +302,9 @@
 
 (defstruct match-fail-struct)
 
+(setq max-lisp-eval-depth 10000)
+(setq max-specpdl-size 10000)
+
 (defvar *match-fail* (make-match-fail-struct))
 (defvar *shadchen-binding-mode* :dynamic)
 (defun adjust-let-for-mode (input)
@@ -469,20 +472,34 @@ two terms, a function and a match against the result.  Got
 (defun match-let-expander (match-expression match-value body)
   `(,(adjust-let-for-mode 'let) ,(cdr match-expression) ,@body))
 
+;; (defun match-or-expander (match-expression match-value body)
+;;   (cond 
+;;    ((length=1 (cdr match-expression))
+;;     `(match1 ,(cadr match-expression) ,match-value ,@body))
+;;    (:otherwise
+;; 	(let* ((forms (cdr match-expression))
+;; 		   (form (car forms))
+;; 		   (rest (cdr forms))
+;; 		   (nm (gensym "MATCH-OR-EXPANDER-NM-")))
+;; 	  `(let* ((,nm ,match-value)
+;; 			  (result (match1 ,form ,nm ,@body)))
+;; 		 (if (not (eq *match-fail* result))
+;; 			 result
+;; 		   (match1 (or ,@rest) ,nm ,@body)))))))
+
 (defun match-or-expander (match-expression match-value body)
-  (cond 
-   ((length=1 (cdr match-expression))
-    `(match1 ,(cadr match-expression) ,match-value ,@body))
-   (:otherwise
-	(let* ((forms (cdr match-expression))
-		   (form (car forms))
-		   (rest (cdr forms))
-		   (nm (gensym "MATCH-OR-EXPANDER-NM-")))
-	  `(let* ((,nm ,match-value)
-			  (result (match1 ,form ,nm ,@body)))
-		 (if (not (eq *match-fail* result))
-			 result
-		   (match1 (or ,@rest) ,nm ,@body)))))))
+  (let ((-result-holder- (gensym "result-holder-"))
+		(-value-holder- (gensym "value-holder-")))
+	`(let ((,-value-holder- ,match-value)
+		   (,-result-holder- *match-fail*))
+	   (cond 
+		,@(loop for pattern in (cdr match-expression) collect
+				`((progn 
+					(setq ,-result-holder- 
+						  (match1 ,pattern ,-value-holder- ,@body))
+					(not (eq ,-result-holder- *match-fail*)))
+				  ,-result-holder-))
+		(:else *match-fail*)))))
 
 (defun shadchen:mapcat (f lst)
   "Concatenate the results of applying f to each element in lst."
@@ -530,6 +547,21 @@ by that expression."
    (:otherwise 
 	(error "calc-pattern-bindings: unrecognized pattern %S." expr))))
 
+(defun match-one-of-expander (match-expr value-expr body)
+  (let ((-result- (gensym "result-"))
+		(-value- (gensym "value-"))
+		(-element- (gensym "element-")))
+	`(let ((,-result- *match-fail*)
+		   (,-value- ,value-expr))
+	   (when (listp ,-value-)
+		 (loop for ,-element- in ,-value- 
+			   do 
+			   (setq ,-result-
+					 (match1 ,(cadr match-expr) ,-element- ,@body))
+			   until 
+			   (not (eq *match-fail* ,-result-))))
+	   ,-result-)))
+
 (defmacro* match1 (match-expression match-value &body body)
   (cond 
    ((not match-expression)
@@ -557,7 +589,8 @@ by that expression."
 		  (or (match-or-expander match-expression match-value body))
 		  (bq (match-backquote-expander match-expression match-value body))
 		  (let (match-let-expander match-expression match-value body))
-		  (values (match-values-expander match-expression match-value body)))
+		  (values (match-values-expander match-expression match-value body))
+		  (one-of (match-one-of-expander match-expression match-value body)))
 	  (match-list-expander '(list) match-value body)))
    (:otherwise (error "MATCH1: Unrecognized match expression: %s." match-expression))))
 
@@ -667,12 +700,12 @@ lexical via cl.el's lexical let.  An alternative is to use Emacs
 			 (< (length v) ,ix)))
 	  (vector@-no-bounds/type-check ,ix ,v))))
 
-(defpattern one-of (pattern)
-  `(and
-	(? #'listp)
-	(funcall #'length (? (lambda (x) (> x 0))))
-	(or (funcall #'car ,pattern)
-		(funcall #'cdr (one-of ,pattern)))))
+;; (defpattern one-of (pattern)
+;;   `(and
+;; 	(? #'listp)
+;; 	(funcall #'length (? (lambda (x) (> x 0))))
+;; 	(or (funcall #'car ,pattern)
+;; 		(funcall #'cdr (one-of ,pattern)))))
 
 (defpattern one-of-two-lists (pattern)
   `(and
@@ -945,18 +978,6 @@ pattern."
 	   (full-concat ,(+ pivot 1) ,@patterns))))))
 
 
-(defpattern concat (&rest patterns)
-  (cond 
-   ((length=0 patterns)
-	"")
-   ((length=1 patterns)
-	`(? #'stringp ,(car patterns)))
-   (:otherwise
-	(cond 
-	 ((stringp (car patterns))
-	  `(simple-concat ,@patterns))
-	 (:otherwise 
-	  `(full-concat 0 ,@patterns))))))
 
 (defpattern append-helper (head-pattern tail-patterns)
   `(or 
@@ -989,6 +1010,63 @@ the matching expression from the body."
 	`(lambda (,arg)
 	   (match ,arg 
 			  ,@body))))
+
+(defmacro* shadchen:sequentially (bindings &body body)
+  "List comprehension monad form."
+  (cond ((null bindings)
+		 `(progn ,@body))
+		(:else
+		 (let* ((binding (car bindings))
+				(sym (car binding))
+				(expr (cadr binding)))
+		   `(loop for ,sym in ,expr append 
+				  (shadchen:sequentially ,(cdr bindings) ,@body))))))
+
+(defun* shadchen:enumerate-segments (len n &optional (offset 0) acc) 
+  (cond 
+   ((= n 0) (reverse acc))
+   ((= n 1) (reverse (cons (list (list offset (- len 1))) acc)))
+   ((= n 2) (loop for i from offset to len collect
+				  (append acc (list (list offset i)
+									(list i len)) )))
+   (:else
+	(loop for i from offset to len append
+		  (progn 
+			(shadchen:enumerate-segments len (- n 1) i 
+										 (cons (list offset i) acc)))))))
+
+(defun shadchen:substrings (string delims)
+  (mapcar (lambda (delim)
+			(substring string (car delim) (cadr delim)))
+		  delims))
+
+(defun shadchen:enumerate-substrings (string n-sub)
+  (let ((segments (shadchen:enumerate-segments (length string) n-sub)))
+	(reverse (mapcar
+			  (lambda (segment)
+				(shadchen:substrings string segment))
+			  segments))))
+
+;; (defpattern concat (&rest patterns)
+;;   (cond 
+;;    ((length=0 patterns)
+;; 	"")
+;;    ((length=1 patterns)
+;; 	`(? #'stringp ,(car patterns)))
+;;    (:otherwise
+;; 	(cond 
+;; 	 ((stringp (car patterns))
+;; 	  `(simple-concat ,@patterns))
+;; 	 (:otherwise 
+;; 	  `(full-concat 0 ,@patterns))))))
+
+(defpattern concat (&rest patterns)
+  (let ((-string- (gensym "-string-")))
+	`(and (p #'stringp)
+		  (funcall
+		   (lambda (,-string-)
+			 (shadchen:enumerate-substrings ,-string- ,(length patterns)))
+		   (one-of (list ,@patterns))))))
 
 (provide 'shadchen)
 
