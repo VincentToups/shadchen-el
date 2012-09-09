@@ -1068,6 +1068,25 @@ the matching expression from the body."
 			 (shadchen:enumerate-substrings ,-string- ,(length patterns)))
 		   (one-of (list ,@patterns))))))
 
+(defun shadchen:non-keyword-symbolp (o)
+  (and (symbolp o)
+	   (not (keywordp o))))
+
+(defpattern keyword (pattern) 
+  `(p #'keywordp ,pattern))
+
+(defpattern symbol (pattern) 
+  `(p #'symbolp ,pattern))
+
+(defpattern non-kw-symbol (pattern)
+  `(p #'shadchen:non-keyword-symbolp ,pattern))
+
+(defpattern string (pattern)
+  `(p #'stringp ,pattern))
+
+(defpattern number (pattern)
+  `(p #'numberp ,pattern))
+
 (provide 'shadchen)
 
 
