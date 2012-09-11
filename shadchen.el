@@ -1087,6 +1087,10 @@ the matching expression from the body."
 (defpattern number (pattern)
   `(p #'numberp ,pattern))
 
+(defpattern equal (value pattern)
+  (let ((arg (gensym "arg")))
+	`(p #'(lambda (,arg) (equal ,arg ,value)) ,pattern)))
+
 (provide 'shadchen)
 
 
