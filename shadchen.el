@@ -1087,9 +1087,16 @@ the matching expression from the body."
 (defpattern number (pattern)
   `(p #'numberp ,pattern))
 
-(defpattern equal (value pattern)
+(defpattern equal (value &optional pattern)
   (let ((arg (gensym "arg")))
-	`(p #'(lambda (,arg) (equal ,arg ,value)) ,pattern)))
+	(if pattern `(p #'(lambda (,arg) (equal ,arg ,value)) ,pattern)
+	  `(p #'(lambda (,arg) (equal ,arg ,value))))))
+
+
+(defpattern not-equal (value &optional pattern)
+  (let ((arg (gensym "arg")))
+	(if pattern `(p #'(lambda (,arg) (not (equal ,arg ,value))) ,pattern)
+	  `(p #'(lambda (,arg) (not (equal ,arg ,value)))))))
 
 (provide 'shadchen)
 
