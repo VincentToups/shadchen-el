@@ -44,3 +44,20 @@
 							  (lambda ()
 								x)))))
 		  (funcall f))))
+
+(defun-match- test-product (nil acc)
+  "Return the accumulator."
+  acc)
+(defun-match test-product ((list-rest hd tl) acc)
+  "Recur, mult. the acc by the hd."
+  (recur tl (* hd acc)))
+(defun-match test-product (lst)
+  "Entry-point: find the product of the numbers in LST."
+  (recur lst 1))
+
+(make-defun-match-unbound 'test-product)
+(fmakunbound 'test-product)
+(setf (symbol-function 'test-product) nil)
+
+(test-product (list 1 2 3))
+(eq (get-recur-sigil-for 'x) (get-recur-sigil-for 'x))
