@@ -594,7 +594,8 @@ by that expression."
 		  (bq (match-backquote-expander match-expression match-value body))
 		  (let (match-let-expander match-expression match-value body))
 		  (values (match-values-expander match-expression match-value body))
-		  (one-of (match-one-of-expander match-expression match-value body)))
+		  (one-of (match-one-of-expander match-expression match-value body))
+		  (otherwise "MATCH1: Unrecognized match expression: %s." match-expression))
 	  (match-list-expander '(list) match-value body)))
    (:otherwise (error "MATCH1: Unrecognized match expression: %s." match-expression))))
 
@@ -819,6 +820,7 @@ to use Emacs 24 & >'s lexical binding mode with regular match-let."
 (defvar *match-function-table* (make-hash-table))
 (defvar *match-function-doc-table* (make-hash-table))
 (defvar *match-function-name-table* (make-hash-table))
+(defvar *match-defun-compile-debug-messages* nil)
 
 (defun match-fboundp (symbol)
   "Returns T when symbol is a function and a match function."
@@ -914,27 +916,40 @@ same recursion markers.")
 	`(lambda (&rest ,entry-args)
 	   (let ((,result *match-fail*)
 			 (,funs-to-test (gethash ',name *match-function-table*))
-			 (,funs-left-to-test (gethash ',name *match-function-table*)))
+			 (,funs-left-to-test (gethash ',name *match-function-table*))
+			 (,f-name nil))
 		 (flet ((recur (&rest args)
 					   (cons ',(get-recur-sigil-for name) args))
 				(,detect-recur (o)
 							   (and (consp o)
 									(let ((test-result (eq (car o) ',(get-recur-sigil-for name))))
 									  test-result))))
+		   ,@(if *match-defun-compile-debug-messages*
+				 `((message "Entering %s." ',name))
+			   nil)
 		   (loop while ,funs-left-to-test
 				 do
 				 (setq ,f-name (pop ,funs-left-to-test))
+				 ,@(if *match-defun-compile-debug-messages*
+					   `((message "Trying %s against %S." ,f-name ,entry-args))
+					 nil)
 				 (setq ,result (apply ,f-name ,entry-args))
 				 when (and (not (match-fail-p ,result))
 						   (not (,detect-recur ,result)))
 				 do
+				 ,@(if *match-defun-compile-debug-messages*
+					   `((message "Terminating with %s." ,result))
+					 nil)
 				 (return ,result)
 				 when (,detect-recur ,result)
 				 do
+				 ,@(if *match-defun-compile-debug-messages*
+					   `((message "Recurring with %s." ,result))
+					 nil)
 				 (setq ,entry-args (cdr ,result))
 				 (setq ,funs-left-to-test ,funs-to-test))
 		   (if (match-fail-p ,result)
-			   (error "%s: Match failure for arguments: %S." ',name ',patterns)
+			   (error "%s: Match failure for arguments: %S." ',name ,entry-args)
 			 ,result))))))
 
 (defmacro* defun-match- (name patterns &body body)
@@ -944,8 +959,9 @@ same recursion markers.")
 		 (args (gensym (concat "args-" (symbol-name compound-name))))
 		 (extended-doc-string (concat (format "%S" patterns) "- " doc-string (format "\n"))))
 	`(progn 
-	   (defun ,compound-name (&rest args) 
-		 (match1 (list ,@patterns) args ,extended-doc-string ,@body))
+	   (defun ,compound-name (&rest args)
+		 ,extended-doc-string 
+		 (match1 (list ,@patterns) args  ,@body))
 	   (setf (gethash ',name *match-function-table*)
 			 (list #',compound-name))
 	   (setf (gethash ',name *match-function-doc-table*)
@@ -962,8 +978,9 @@ same recursion markers.")
 		 (args (gensym (concat "args-" (symbol-name compound-name))))
 		 (extended-doc-string (concat (format "%S" patterns) "- " doc-string (format "\n"))))
 	`(progn 
-	   (defun ,compound-name (&rest args) 
-		 (match1 (list ,@patterns) args ,extended-doc-string ,@body))
+	   (defun ,compound-name (&rest args)
+		 ,extended-doc-string 
+		 (match1 (list ,@patterns) args  ,@body))
 	   (setf (gethash ',name *match-function-table*)
 			 (append (gethash ',name *match-function-table*) 
 					 (list #',compound-name)))
