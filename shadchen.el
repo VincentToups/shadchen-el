@@ -944,7 +944,7 @@ same recursion markers.")
 				 when (,detect-recur ,result)
 				 do
 				 ,@(if *match-defun-compile-debug-messages*
-					   `((message "Recurring with %s." ,result))
+					   `((message "Recurring to %s with %s." ',name ,result))
 					 nil)
 				 (setq ,entry-args (cdr ,result))
 				 (setq ,funs-left-to-test ,funs-to-test))
