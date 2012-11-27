@@ -79,6 +79,13 @@ NIL.
 
     (LIST <P1> ... <PN>)
 
+One may also write 
+
+    (LIST <P1> ... <PN> (TAIL <PT>))
+
+Where the pattern <PT> is matched against the tail of the list.  This
+is an alternative to LIST-REST.
+
 Matches a list of length N, then matches each pattern `<PN>` to the
 elements of that list.
 
@@ -184,6 +191,41 @@ This is a handy pattern for simple parsers.
 
 Like `concat` except for lists rather than strings.
 
+    (must-match pattern)
+
+This pattern is a bit unusual in that if the value fails to match
+`pattern`, then the match will raise an error indicating this fact.
+This is useful if you have compound patterns which are strict in some
+parts and for which you wish to raise an error, for instance,
+
+    (match `(if (< x 10) true-case false-case nonsense)
+     ((list 'if (tail (must-match (list a b c))))
+      <compile if>))
+
+In the above, we assert that _if_ the head of a list is the symbol
+`if`, then the tail must consist of three elements and we want to know
+about it immediately if a list with head `if` shows up with a
+different tail.  
+
+    (must-match pattern fail-binding-pattern expression)
+
+This is like the pattern above, except in the case that `pattern`
+fails to match, `fail-binding-pattern` is matched, and then `expression`
+is evaluated and passed to the `error` raising mechanism, coerced to a
+string if need be.  We migth write the above as 
+
+    (match `(if (< x 10) true-case false-case nonsense)
+      ((list 'if (tail (must-match (list a b c) 
+                       actual-tail
+                       (format 
+                        "if should have three arguments, but got %s" 
+                        actual-tail))))
+       <compile if>))
+
+A full shadchen pattern can be used in the fail-binding-pattern, but
+usually you are going to provide just a symbol - after all, if the
+pattern failed, you don't know much about the value.  
+
 Match-let
 ---------
 
@@ -244,6 +286,10 @@ Note that different bodies can `recur` to eachother without growing
 the stack.  Documentation for each body is accumulated, along with the
 pattern associated with the body, into the function's complete
 documentation.
+
+The argument list of a `defun-match` form is syntactically equivalent
+to the body of a `list` pattern, so you can use `(tail pattern)` to
+match against the tail of the arguments passed in.
 
   
 
