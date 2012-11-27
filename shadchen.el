@@ -597,9 +597,14 @@ by that expression."
 	  (:pattern-only 
 	   (destructuring-bind (_ pattern) match-expr
 		 (let ((sym (gensym))) 
-		   (match-must-match-expander `(must-match ,pattern ,sym (format ,(format "must-match pattern (%S) failed to match %%S" pattern) ,sym))
-									  val-expr body))))
-	  (:pattern+
+		   (match-must-match-expander 
+			`(must-match 
+			  ,pattern 
+			  ,sym 
+			  (format ,(format "must-match pattern (%S) failed to match %%S" pattern) 
+					  ,sym))
+			val-expr body))))
+ 	  (:pattern+
 	   (destructuring-bind (_ pattern fail-pattern message-expression) match-expr
 		   (let ((match-result (gensym))
 				 (error-value (gensym)))
@@ -615,7 +620,7 @@ by that expression."
 						   (,(gensym)
 							(error 
 							 (format 
-							  ,(format "must-match pattern (%S) failed and then the failed-value pattern (%S) also failed on value %%s" 
+							  ,(format "must-match pattern (%S) failed and then the failed-value pattern (%S) also failed on value %%S" 
 									   pattern fail-pattern) 
 							  ,value))))
 				  ,match-result)))))
