@@ -606,24 +606,24 @@ by that expression."
 			val-expr body))))
  	  (:pattern+
 	   (destructuring-bind (_ pattern fail-pattern message-expression) match-expr
-		   (let ((match-result (gensym))
-				 (error-value (gensym)))
-			 `(let* ((,value ,val-expr)
-					 (,match-result 
-					  (match1 ,pattern ,value ,@body)))
-				(if (eq ,match-result *match-fail*)
-					(match ,value 
-						   (,fail-pattern (let ((,error-value ,message-expression))
-											(if (stringp ,error-value)
-												(error ,error-value)
-											  (error "%S" ,error-value))))
+		 (let ((match-result (gensym))
+			   (error-value (gensym)))
+		   `(let* ((,value ,val-expr)
+				   (,match-result 
+					(match1 ,pattern ,value :other-than-match-fail)))
+			  (if (eq ,match-result *match-fail*)
+				  (match ,value 
+						 (,fail-pattern (let ((,error-value ,message-expression))
+										  (if (stringp ,error-value)
+											  (error ,error-value)
+											(error "%S" ,error-value))))
 						   (,(gensym)
 							(error 
 							 (format 
 							  ,(format "must-match pattern (%S) failed and then the failed-value pattern (%S) also failed on value %%S" 
 									   pattern fail-pattern) 
 							  ,value))))
-				  ,match-result)))))
+				  (match1 ,pattern ,value ,@body))))))
 	  (t (error "Unrecognized must-match pattern form %S" match-expr)))))
 
 (defmacro* match1 (match-expression match-value &body body)
