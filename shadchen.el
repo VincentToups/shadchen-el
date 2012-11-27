@@ -345,6 +345,10 @@
 (defun match-list-expander* (sub-expressions match-value body)
   (cond 
    ((not sub-expressions) `(if (not ,match-value) (progn ,@body) *match-fail*))
+   ((and (= 1 (length sub-expressions))
+		 (listp (car sub-expressions))
+		 (eq (car (car sub-expressions)) 'tail))
+	`(match1 (list-rest ,@(cdr (car sub-expressions))) ,match-value ,@body))
    (:otherwise
 	(let ((first-expression (car sub-expressions))
 		  (list-name (gensym "MATCH-LIST-EXPANDER*-")))
@@ -455,8 +459,10 @@ two terms, a function and a match against the result.  Got
 	`(match1 ,expansion ,match-value ,@body)))
 
 (defmacro* defpattern (name args &body body)
-  `(setf (gethash ',name *extended-patterns*)
-		 #'(lambda ,args ,@body)))
+  (let ((stub-args (gensym "args")))
+	`(setf (gethash ',name *extended-patterns*)
+		   #'(lambda (&rest ,stub-args)
+			   (destructuring-bind ,args ,stub-args ,@body)))))
 
 (defun match-literal-string (match-expression match-value body)
   `(if (string= ,match-expression ,match-value) 
@@ -566,6 +572,55 @@ by that expression."
 			   (not (eq *match-fail* ,-result-))))
 	   ,-result-)))
 
+(defun match-vector-expander (match-expr match-val body)
+  (let ((value (gensym)))
+	`(let ((,value ,match-val))
+	   (if (vectorp ,value)
+		   (match1 (list ,@(coerce match-expr 'list))
+				   (coerce ,value 'list)
+				   ,@body)
+		 *match-fail*))))
+
+(defun must-match-case (match-expr)
+  (cond 
+   ((and (listp match-expr)
+		 (= 2 (length match-expr)))
+	:pattern-only)
+   ((and (listp match-expr)
+		 (= 4 (length match-expr)))
+	:pattern+)
+   (t :unrecognized)))
+
+(defun match-must-match-expander (match-expr val-expr body)
+  (let ((value (gensym "value-")))
+	(case (must-match-case match-expr)
+	  (:pattern-only 
+	   (destructuring-bind (_ pattern) match-expr
+		 (let ((sym (gensym))) 
+		   (match-must-match-expander `(must-match ,pattern ,sym (format ,(format "must-match pattern (%S) failed to match %%S" pattern) ,sym))
+									  val-expr body))))
+	  (:pattern+
+	   (destructuring-bind (_ pattern fail-pattern message-expression) match-expr
+		   (let ((match-result (gensym))
+				 (error-value (gensym)))
+			 `(let* ((,value ,val-expr)
+					 (,match-result 
+					  (match1 ,pattern ,value ,@body)))
+				(if (eq ,match-result *match-fail*)
+					(match ,value 
+						   (,fail-pattern (let ((,error-value ,message-expression))
+											(if (stringp ,error-value)
+												(error ,error-value)
+											  (error "%S" ,error-value))))
+						   (,(gensym)
+							(error 
+							 (format 
+							  ,(format "must-match pattern (%S) failed and then the failed-value pattern (%S) also failed on value %%s" 
+									   pattern fail-pattern) 
+							  ,value))))
+				  ,match-result)))))
+	  (t (error "Unrecognized must-match pattern form %S" match-expr)))))
+
 (defmacro* match1 (match-expression match-value &body body)
   (cond 
    ((not match-expression)
@@ -577,6 +632,8 @@ by that expression."
 	(match-literal-string match-expression match-value body))
    ((numberp match-expression)
 	(match-literal-number match-expression match-value body))
+   ((vectorp match-expression)
+	(match-vector-expander match-expression match-value body))
    ((keywordp match-expression)
 	(match-literal-keyword match-expression match-value body))
    ((extended-patternp (car match-expression)) 
@@ -584,6 +641,7 @@ by that expression."
    ((listp match-expression)
 	(if match-expression 
 		(case (car match-expression)
+		  (must-match (match-must-match-expander match-expression match-value body))
 		  (list (match-list-expander match-expression match-value body))
 		  (cons (match-cons-expander match-expression match-value body))
 		  (quote (match-quote-expander match-expression match-value body))
@@ -611,7 +669,8 @@ by that expression."
 				   (> (length first-form) 1))
 			  (first-form)
 			  "Each MATCH SUB-FORM must be at least two elements long, a matcher
-and an expression to evaluate on match. Got %s instead." first-form)
+and an expression to evaluate on match. Got %S instead (in %S, with value expression %S)." 
+			  first-form forms value)
 	  (let ((match-expression (car first-form))
 			(match-body-exprs (cdr first-form))
 			(result-name (gensym "MATCH-HELPER-RESULT-NAME-")))
@@ -993,55 +1052,6 @@ same recursion markers.")
 	   (defalias ',name ,(make-match-defun-main-lambda name patterns) 
 		 (gethash ',name *match-function-doc-table*)))))
 
-;; (defmacro* defun-match (name patterns &body body)
-;;   "Create a function which dispatches to various bodies via
-;; pattern matching.  Multiple bodies can be specified across
-;; several invokations of 'defun-match' and the matching body will
-;; be executed (patterns are checked in the order of definition.)
-
-;; If no patterns match, then an error indicating the failure of a
-;; match is raised.
-
-;; If the first item in BODY is a string, it is added to the
-;; documentation for the whole function, along with the associated
-;; pattern."
-;;   (let ((args (gensym "defun-match-arg-list-"))
-;; 		(inner-arg (gensym "defun-match-inner-args-"))
-;; 		(true-body body)
-;; 		(doc (if (stringp (car body)) (car body) ""))
-;; 		(fun (gensym "defun-match-fun-"))
-;; 		(val (gensym "defun-match-val-"))
-;; 		(result (gensym "defun-match-result-"))
-;; 		(recur (gensym "recur-point-"))
-;; 		(inner-recur-args (gensym "defun-match-inner-recur-args-"))
-;; 		(inner-recur-sigil (get-recur-sigil-for name))
-;; 		(possibles (gensym "defun-match-possibles-")))
-;; 	`(progn 
-;; 	   (extend-match-function ',name 
-;; 							  (lambda (,inner-arg)
-;; 								(match1 (list ,@patterns) ,inner-arg ,@true-body))
-;; 							  ',patterns
-;; 							  ,doc)
-;; 	   (defalias ',name (lambda (&rest ,args)
-;; 						  (flet ((recur (&rest ,inner-recur-args)
-;; 										(list ',inner-recur-sigil ,inner-recur-args)))
-;; 							(shadchen:let/named 
-;; 							 ,recur
-;; 							 ((,possibles (gethash ',name *match-function-table*)))
-;; 							 (cond 
-;; 							  ((not ,possibles) (error "Match fail for matching defun %s with arguments %S." ',name ,args))
-;; 							  (:otherwise
-;; 							   (let* ((,fun (car ,possibles))
-;; 									  (,val (funcall ,fun ,args)))
-;; 								 (cond 
-;; 								  ((eq *match-fail* ,val)
-;; 								   (,recur (cdr ,possibles)))
-;; 								  ((and (listp ,val)
-;; 										(eq (car ,val) ',inner-recur-sigil))
-;; 								   (setq ,args (cadr ,val))
-;; 								   (,recur (gethash ',name *match-function-table*)))
-;; 								  (:otherwise ,val))))))))
-;; 		 (gethash ',name *match-function-doc-table*)))))
 
 (defpattern simple-concat (&rest patterns)
   (cond 
@@ -1210,6 +1220,12 @@ the matching expression from the body."
   (let ((arg (gensym "arg")))
 	(if pattern `(p #'(lambda (,arg) (not (equal ,arg ,value))) ,pattern)
 	  `(p #'(lambda (,arg) (not (equal ,arg ,value)))))))
+
+(defpattern non-null (&optional (pattern (gensym)))
+  (let ((arg (gensym)))
+	`(p (lambda (,arg)
+		  (not (null ,arg)))
+		,pattern)))
 
 (provide 'shadchen)
 
