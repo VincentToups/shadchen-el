@@ -148,7 +148,7 @@ Not a pattern matching pattern, per se.  `let` always succeeds and
 produces a context where the bindings are active.  This can be used to
 provide default alternatives, as in:
 
-    (defun not-nil (x) x)
+    (defun non-nil (x) x)
 
     (match (list 1) 
      ((cons hd (or (? #'non-nil tl)
