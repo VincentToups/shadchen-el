@@ -497,7 +497,7 @@ two terms, a function and a match against the result.  Got
 ;; 			 result
 ;; 		   (match1 (or ,@rest) ,nm ,@body)))))))
 
-(defun match-or-expander (match-expression match-value body)
+(defun match-or-expander-unsafe (match-expression match-value body)
   (let ((-result-holder- (gensym "result-holder-"))
 		(-value-holder- (gensym "value-holder-")))
 	`(let ((,-value-holder- ,match-value)
@@ -511,6 +511,12 @@ two terms, a function and a match against the result.  Got
 				  ,-result-holder-))
 		(:else *match-fail*)))))
 
+(defun match-or-expander (match-expression match-value body)
+  (assert (apply #'equal-by-binding (cdr match-expression))
+		  (match-expression)
+		  "Or sub-expressions %S contains sub-forms which do not bind identical sets of symbols.")
+  (match-or-expander-unsafe match-expression match-value body))
+
 (defun shadchen:mapcat (f lst)
   "Concatenate the results of applying f to each element in lst."
   (loop for item in lst append (funcall f item)))
@@ -520,7 +526,7 @@ two terms, a function and a match against the result.  Got
   (let* ((pattern-args (cdr expr))
 		 (pattern-fun (gethash (car expr) *extended-patterns*))
 		 (expansion (apply pattern-fun pattern-args)))
-	(calc-pattern-bindings-extended expansion)))
+	(calc-pattern-bindings expansion)))
 
 (defun calc-backquote-bindings (expr)
   "Calculate the bindings for a backquote expression."
@@ -530,12 +536,25 @@ two terms, a function and a match against the result.  Got
 		append 
 		(calc-pattern-bindings (cadr sub))))
 
+(defun calc-pattern-bindings-list (expr &optional acc)
+  (cond ((null expr)
+		 acc)
+		((and (listp expr)
+			  (listp (car expr))
+			  (eq 'tail (car (car expr))))
+		 (append acc (calc-pattern-bindings (cadr (car expr)))))
+		(t
+		 (calc-pattern-bindings-list (cdr expr)
+									 (append (calc-pattern-bindings (car expr)) acc)))))
+
 (defun calc-pattern-bindings (expr)
   "Given a shadchen pattern EXPR return a list of symbols bound
 by that expression."
   (cond 
    ((non-keyword-symbol expr)
 	(list expr))
+   ((vectorp expr)
+	(calc-pattern-bindings `(list ,@(coerce expr 'list))))
    ((or (not expr)
 		(symbolp expr)
 		(numberp expr)
@@ -545,17 +564,41 @@ by that expression."
    ((listp expr)
 	(case (car expr)
 	  (quote nil)
-	  ((list and values) 
+	  ((and values) 
 	   (shadchen:mapcat #'calc-pattern-bindings (cdr expr)))
+	  (list (calc-pattern-bindings-list (cdr expr)))
 	  (cons (append (calc-pattern-bindings (car expr))
 					(calc-pattern-bindings (cdr expr))))
-	  ((? funcall) (if (= 2 (length expr)) nil
+	  ((? p funcall) (if (= 2 (length expr)) nil
 					 (calc-pattern-bindings (elt expr 2))))
 	  (or (calc-pattern-bindings (cadr expr)))
 	  (bq (calc-backquote-bindings expr))
+	  ((! must-match string number keyword non-keyword-symbol) (calc-pattern-bindings (cadr expr)))
+	  (one-of (calc-pattern-bindings (cadr expr)))
 	  (let (mapcar #'car (cdr expr)))))
    (:otherwise 
 	(error "calc-pattern-bindings: unrecognized pattern %S." expr))))
+
+(defun symbol->string-for-sort (s)
+  (symbol-name s))
+
+(defun canonical-binding-list (l)
+  (sort* l #'string< :key #'symbol->string-for-sort))
+
+(defun equal-by-binding2 (p1 p2)
+  (equal (canonical-binding-list 
+		  (calc-pattern-bindings p1))
+		 (canonical-binding-list 
+		  (calc-pattern-bindings p2))))
+
+(defun equal-by-binding (&rest patterns)
+  (cond 
+   ((= 1 (length patterns)) t)
+   ((= 2 (length patterns))
+	(equal-by-binding2 (car patterns) (cadr patterns)))
+   (t
+	(and (equal-by-binding2 (car patterns) (cadr patterns))
+		 (apply #'equal-by-binding (cdr patterns))))))
 
 (defun match-one-of-expander (match-expr value-expr body)
   (let ((-result- (gensym "result-"))

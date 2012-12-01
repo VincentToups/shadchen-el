@@ -108,8 +108,8 @@ patterns match, and binding all variables in all patterns.
 
 Tries each `<PN>` in turn, and succeeds if any `<PN>` succeeds.  The
 body of the matched expression is then executed with that `<PN>'s`
-bindings.  It is up to the user to ensure that the bindings are
-relevant to the body.
+bindings.  Each sub-pattern in an OR pattern must bind an identical
+set of identifiers or an error is raised. 
 
      (? PREDICATE <PATTERN>)
 
