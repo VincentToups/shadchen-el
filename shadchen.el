@@ -649,32 +649,32 @@ by that expression."
 			val-expr body))))
  	  (:pattern+
 	   (destructuring-bind (_ pattern fail-pattern message-expression) match-expr
-		 (let ((match-result (gensym))
-			   (value (gensym))
-			   (success-flag (gensym))
-			   (bound-symbols (calc-pattern-bindings pattern))
-			   (actual-pattern 
-				`(or (and ,value 
-						  ,pattern (let1 ,success-flag t))
-					 (and ,value 
-						  (let ,(loop for b in bound-symbols collect 
-									  `(,b :dummy-value))
-							(,success-flag nil))))))
+		 (let* ((match-result (gensym))
+				(value (gensym))
+				(success-flag (gensym))
+				(bound-symbols (calc-pattern-bindings pattern))
+				(actual-pattern 
+				 `(or (and ,value 
+						   ,pattern (let1 ,success-flag t))
+					  (and ,value 
+						   (let ,(loop for b in bound-symbols collect 
+									   `(,b :dummy-value))
+							 (,success-flag nil))))))
 		   `(match ,val-expr 
 				   (,actual-pattern 
 					(if ,success-flag 
 						(progn ,@body)
 					  (match ,value 
-						 (,fail-pattern (let ((,value ,message-expression))
-										  (if (stringp ,value)
-											  (error ,value)
-											(error "%S" ,value))))
-						   (,(gensym)
-							(error 
-							 (format 
-							  ,(format "must-match pattern (%S) failed and then the failed-value pattern (%S) also failed on value %%S" 
-									   pattern fail-pattern) 
-							  ,value))))))))))
+							 (,fail-pattern (let ((,value ,message-expression))
+											  (if (stringp ,value)
+												  (error ,value)
+												(error "%S" ,value))))
+							 (,(gensym)
+							  (error 
+							   (format 
+								,(format "must-match pattern (%S) failed and then the failed-value pattern (%S) also failed on value %%S" 
+										 pattern fail-pattern) 
+								,value))))))))))
 	  (t (error "Unrecognized must-match pattern form %S" match-expr)))))
 
 (defmacro* match1 (match-expression match-value &body body)
