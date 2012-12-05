@@ -894,6 +894,21 @@ results can occur if `recur` is used in another position.s"
 			 finally 
 			 (return ,recur-results)))))
 
+(defmacro* match-let* (binders &body body)
+  "Like let* except patterns may appear at any location a binding symbol appears."
+  (cond ((null binders)
+		 `(progn ,@body))
+		(t
+		 (let* ((first (car binders))
+				(pattern (car first))
+				(value-expr (cadr first))
+				(rest (cdr binders))
+				(anything-else (gensym)))
+		   `(match ,value-expr
+				   (,pattern (match-let* ,rest ,@body))
+				   (,anything-else 
+					(format "In match-let* %S failed to match pattern %S." ,anything-else ',pattern)))))))
+
 (defmacro* lexical-match-let ((&rest binders) &body body)
   "Like let but the left-hand-side of each binder pair can be a
 shadchen-pattern.  Within a match-let body, the phrase `(recur
@@ -1266,6 +1281,8 @@ the matching expression from the body."
   (let ((arg (gensym "arg")))
 	(if pattern `(p #'(lambda (,arg) (equal ,arg ,value)) ,pattern)
 	  `(p #'(lambda (,arg) (equal ,arg ,value))))))
+
+
 
 
 (defpattern not-equal (value &optional pattern)
