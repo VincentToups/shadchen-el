@@ -301,6 +301,13 @@
 
 
 (eval-when (load compile eval) 
+
+  (defun shadchen:unique-symbols (lst)
+	(let ((seen (list)))
+	  (loop for element in lst do 
+			(when (not (memq element seen))
+			  (push element seen)))
+	  (reverse seen)))
   (defstruct match-fail-struct)
 
   (setq max-lisp-eval-depth 10000)
@@ -448,6 +455,22 @@ two terms, a function and a match against the result.  Got
 			  (,result-name (funcall ,fun-name ,name)))
 		 (match1 ,(caddr match-expression) ,result-name ,@body))))
 
+  (defun match-maybe-funcall-expander (match-expression match-value body)
+	(assert (and (listp match-expression) (= 3 (length match-expression)))
+			(match-expression)
+			"MATCH-FUNCALL-EXPANDER: FUNCALL match expression must have
+two terms, a function and a match against the result.  Got
+%s." match-expression)
+	(let ((name (gensym "MATCH-FUNCALL-EXPANDER-NAME-"))
+		  (fun-name (gensym "MATCH-FUNCALL-EXPANDER-FUN-NAME-"))
+		  (result-name (gensym "MATCH-FUNCALL-EXPANDER-RESULT-NAME-")))
+	  `(let* ((,name ,match-value)
+			  (,fun-name ,(cadr match-expression))
+			  (,result-name (funcall ,fun-name ,name)))
+		 (if (eq ,result-name *match-fail*)
+			 *match-fail* 
+		   (match1 ,(caddr match-expression) ,result-name ,@body)))))
+
   (defvar *extended-patterns* (make-hash-table) "Holds user declared patterns.")
   (defun extended-patternp (pattern-head) 
 	"Return T if PATTERN-HEAD indicates a user provided pattern."
@@ -576,7 +599,7 @@ by that expression."
 		(list (calc-pattern-bindings-list (cdr expr)))
 		(cons (append (calc-pattern-bindings (car expr))
 					  (calc-pattern-bindings (cdr expr))))
-		((? p funcall) (if (= 2 (length expr)) nil
+		((? p funcall maybe-funcall) (if (= 2 (length expr)) nil
 						 (calc-pattern-bindings (elt expr 2))))
 		(or (calc-pattern-bindings (cadr expr)))
 		(bq (calc-backquote-bindings expr))
@@ -590,7 +613,7 @@ by that expression."
 	(symbol-name s))
 
   (defun canonical-binding-list (l)
-	(sort* l #'string< :key #'symbol->string-for-sort))
+	(sort* (shadchen:unique-symbols l) #'string< :key #'symbol->string-for-sort))
 
   (defun equal-by-binding2 (p1 p2)
 	(equal (canonical-binding-list 
@@ -707,6 +730,7 @@ by that expression."
 			(and (match-and-expander match-expression match-value body))
 			((? p) (match-?-expander match-expression match-value body))
 			(funcall (match-funcall-expander match-expression match-value body))
+			(maybe-funcall (match-maybe-funcall-expander match-expression match-value body))
 			(or (match-or-expander match-expression match-value body))
 			(bq (match-backquote-expander match-expression match-value body))
 			(let (match-let-expander match-expression match-value body))

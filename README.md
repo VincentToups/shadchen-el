@@ -121,6 +121,12 @@ Succeeds when `(FUNCALL PREDICATE MATCH-VALUE)` is true and when
 Applies `FUN` to the match value, then matches `<PATTERN>` against _the
 result_.
 
+     (MAYBE-FUNCALL FUN PATTERN)
+
+Like `FUNCALL` but if the application of `FUN` to the object being
+matched against is `*match-fail*` than the match fails, other wise the
+match succeeds only when `PATTERN` matches the result.
+
      (BQ EXPR)
 
 Matches as if by `BACKQUOTE`.  If `EXPR` is an atom, then this is
