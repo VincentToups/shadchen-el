@@ -1474,6 +1474,31 @@ the matching expression from the body."
 							  mv1)))
 			  :zero (None)))
 
+(defun shadchen:kw->symbol (k)
+  (assert (keywordp k))
+  (intern (substring (symbol-name k) 1)))
+
+(eval-when (compile load eval) (defpattern keys (&rest kp-pairs)
+  (let ((db-expr '(&key))
+		(bound-symbols nil)
+		(patterns nil)
+		(datum (gensym "datum"))) 
+	(loop for (k p . rest) on kp-pairs by #'cddr
+		  do
+		  (let ((temp (gensym "temp"))
+				(key-as-sym (shadchen:kw->symbol k)))
+			(setq bound-symbols (append bound-symbols (list key-as-sym)))
+			(setq db-expr (append db-expr (list key-as-sym)))
+			(setq patterns (append patterns (list p)))))
+	`(maybe-funcall 
+	  (lambda (,datum)
+		(condition-case nil 
+			(destructuring-bind ,db-expr ,datum
+			  (list ,@bound-symbols))
+		  (error *match-fail*)))
+	  (list ,@patterns)))))
+
+
 (provide 'shadchen)
 
 
