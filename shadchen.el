@@ -811,6 +811,9 @@ lexical via cl.el's lexical let.  An alternative is to use Emacs
 		  (funcall #'cdr 
 				   (list-rest ,@pats))))))
 
+  (defpattern list* (&rest pats)
+	`(list-rest ,@pats))
+
   (defun cl-struct-prepend (s)
 	(intern (format "cl-struct-%s" s)))
 
