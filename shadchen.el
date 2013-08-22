@@ -356,7 +356,7 @@
 	 ((and (= 1 (length sub-expressions))
 		   (listp (car sub-expressions))
 		   (eq (car (car sub-expressions)) 'tail))
-	  `(match1 (list-rest ,@(cdr (car sub-expressions))) ,match-value ,@body))
+	  `(match1 ,(cadr (car sub-expressions)) ,match-value ,@body))
 	 (:otherwise
 	  (let ((first-expression (car sub-expressions))
 			(list-name (gensym "MATCH-LIST-EXPANDER*-")))
@@ -801,15 +801,12 @@ lexical via cl.el's lexical let.  An alternative is to use Emacs
 		 (not lst)))
 
   (defpattern list-rest (&rest patterns)
-	(if (length=1 patterns)
-		`(? #'listp ,(car patterns))
-	  (let ((pat (car patterns))
-			(pats (cdr patterns)))
-		`(and 
-		  (p #'listp)
-		  (funcall #'car ,pat)
-		  (funcall #'cdr 
-				   (list-rest ,@pats))))))
+	(let ((n (length patterns)))
+	  (cond ((= n 0) '(list))
+			((= n 1) `(list (tail ,(car patterns))))
+			(:otherwise
+			 `(list ,@(reverse (cdr (reverse (copy-list patterns))))
+					(tail ,(car (reverse patterns))))))))
 
   (defpattern list* (&rest pats)
 	`(list-rest ,@pats))
