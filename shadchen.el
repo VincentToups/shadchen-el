@@ -1499,8 +1499,31 @@ the matching expression from the body."
 	  (list ,@patterns)))))
 
 
+;; A few obvious EmacsLisp extras
+
+(defun shadchen/extract (key type)
+  "Return a func to extract KEY from TYPE. 
+
+TYPE is either `:alist' or `:plist'."
+  (lambda (kvlist)
+    (case type
+      (:plist (plist-get kvlist key))
+      (:alist (cdr-safe (assoc key kvlist))))))
+
+(defpattern plist (&rest kv-pairs) 
+  `(and ,@(loop for (k v . rest) on kv-pairs by #'cddr
+             collect
+               `(funcall (shadchen/extract ,k :plist) ,v))))
+
+(defpattern alist (&rest kv-pairs)
+  (cl-labels ((alist-get (key)
+                         (lambda (alist)
+                           (cdr (assoc key alist)))))
+    `(and ,@(loop for (k v . rest) on kv-pairs by #'cddr
+               collect
+                 `(funcall (shadchen/extract ,k :alist) ,v)))))
+
+
 (provide 'shadchen)
-
-
 
 ;;; shadchen.el ends here

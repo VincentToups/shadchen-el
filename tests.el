@@ -61,3 +61,22 @@
 
 (test-product (list 1 2 3))
 (eq (get-recur-sigil-for 'x) (get-recur-sigil-for 'x))
+
+
+;; Alists and Plists
+
+(assert
+ (equal
+  (match
+   '(:one 1 :two 2 :three 3)
+   ((plist :two a) a))
+  2)) ; because that's the value of :two in the plist
+
+(assert
+ (equal
+  (match
+   '((a . 1)(b . 2)(c . 3))
+   ((alist 'c a) a))
+  3)) ; because that's the value of 'c in the alist
+
+;; 
