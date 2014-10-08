@@ -1,4 +1,4 @@
-;;; shadchen.el --- pattern matching for elisp
+;;; shadchen.el --- pattern matching for elisp -*- lexical-binding: t -*-
 
 ;; Version: 1.0
 ;; Author: Vincent Toups
