@@ -1,4 +1,4 @@
-;;; shadchen.el --- pattern matching for elisp -*- lexical-binding: t -*-
+;;; shadchen.el --- pattern matching for elisp
 
 ;; Version: 1.0
 ;; Author: Vincent Toups
@@ -769,6 +769,7 @@ FORMS.  When a match is detected, its subsequent forms are executed as
 in a PROGN where the bindings implied by the match are in effect.  
 
 An error is thrown when no matches are found."
+        (declare (debug (form &rest sexp)))
 	(let ((name (gensym "MATCH-VALUE-NAME-"))
 		  (current-match-form `(match ,value ,@forms)))
 	  `(let ((,name ,value)) 
@@ -782,8 +783,9 @@ in a PROGN where the bindings implied by the match are in effect.
 An error is thrown when no matches are found.  Bindings are
 lexical via cl.el's lexical let.  An alternative is to use Emacs
 24's lexical binding mode and use regular match."
+        (declare (debug (form &rest sexp)))
 	(let ((*shadchen-binding-mode* :lexical))
-	  (macroexpand-all `(match value ,@forms))))
+	  (macroexpand-all `(match ,value ,@forms))))
 
   (defmacro* match-lambda (&body forms) 
 	"Like MATCH except the VALUE is curried."
@@ -1516,12 +1518,9 @@ TYPE is either `:alist' or `:plist'."
                `(funcall (shadchen/extract ,k :plist) ,v))))
 
 (defpattern alist (&rest kv-pairs)
-  (cl-labels ((alist-get (key)
-                         (lambda (alist)
-                           (cdr (assoc key alist)))))
-    `(and ,@(loop for (k v . rest) on kv-pairs by #'cddr
-               collect
-                 `(funcall (shadchen/extract ,k :alist) ,v)))))
+  `(and ,@(loop for (k v . rest) on kv-pairs by #'cddr
+             collect
+               `(funcall (shadchen/extract ,k :alist) ,v))))
 
 
 (provide 'shadchen)
