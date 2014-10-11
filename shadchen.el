@@ -1516,12 +1516,9 @@ TYPE is either `:alist' or `:plist'."
                `(funcall (shadchen/extract ,k :plist) ,v))))
 
 (defpattern alist (&rest kv-pairs)
-  (cl-labels ((alist-get (key)
-                         (lambda (alist)
-                           (cdr (assoc key alist)))))
-    `(and ,@(loop for (k v . rest) on kv-pairs by #'cddr
-               collect
-                 `(funcall (shadchen/extract ,k :alist) ,v)))))
+  `(and ,@(loop for (k v . rest) on kv-pairs by #'cddr
+             collect
+               `(funcall (shadchen/extract ,k :alist) ,v))))
 
 
 (provide 'shadchen)
