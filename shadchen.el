@@ -1505,10 +1505,12 @@ the matching expression from the body."
   "Return a func to extract KEY from TYPE. 
 
 TYPE is either `:alist' or `:plist'."
-  (lambda (kvlist)
-    (case type
-      (:plist (plist-get kvlist key))
-      (:alist (cdr-safe (assoc key kvlist))))))
+  (lexical-let ((typ type)
+                (k key))
+    (lambda (kvlist)
+      (case typ
+        (:plist (plist-get kvlist k))
+        (:alist (cdr-safe (assoc k kvlist)))))))
 
 (defpattern plist (&rest kv-pairs) 
   `(and ,@(loop for (k v . rest) on kv-pairs by #'cddr
