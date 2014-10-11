@@ -1,56 +1,67 @@
-(byte-compile-file "./shadchen.el" t)
+;;; tests.el --- tests for shadchen.el
 
-;; symbol
-(assert 
- (equal 
-  10
-  (match 10
-		 (x x)))
- ()
- "symbol match failed.")
+(require 'shadchen)
+(require 'ert)
 
-;; string
-(assert
- (equal "test"
-		(match "test"
-			   ("test" "test"))))
 
-;; string-fail
-(assert 
- (equal :fail
-		(match "test"
-			   ("dog" :pass)
-			   (_ :fail))))
+(ert-deftest shadchen-symbol-match-failed ()
+  "Test symbol matching."
+  (assert 
+   (equal 
+    10
+    (match 10
+           (x x)))
+   ()
+   "symbol match failed."))
 
-;; list
-(assert 
- (equal 
-  (list 1 2 3)
-  (match (list 1 2 3)
-		 ((list x y z)
-		  (list x y z)))))
+(ert-deftest shadchen-match-string ()
+  "Match a string."
+  (should
+   (equal "test"
+          (match "test"
+                 ("test" "test")))))
+
+(ert-deftest shadchen-match-string-failed ()
+  "Match a string fails."
+  (assert 
+   (equal :fail
+          (match "test"
+                 ("dog" :pass)
+                 (_ :fail)))))
+
+(ert-deftest shadchen-match-list ()
+  "Matching a list."
+  (assert 
+   (equal 
+    (list 1 2 3)
+    (match (list 1 2 3)
+           ((list x y z)
+            (list x y z))))))
 
 
 ;; lexical
 
-;; lexical-match symbol
+(ert-deftest shadchen-match-lexically ()
+  "lexical-match symbol"
+  (should
+   (equal 10
+          (let 
+              ((f 
+                (lexical-match 10 
+                               (x 
+                                (lambda ()
+                                  x)))))
+            (funcall f)))))
 
-(assert 
- (equal 10
-		(let 
-			((f 
-			  (lexical-match 10 
-							 (x 
-							  (lambda ()
-								x)))))
-		  (funcall f))))
 
 (defun-match- test-product (nil acc)
   "Return the accumulator."
   acc)
+
 (defun-match test-product ((list-rest hd tl) acc)
   "Recur, mult. the acc by the hd."
   (recur tl (* hd acc)))
+
 (defun-match test-product (lst)
   "Entry-point: find the product of the numbers in LST."
   (recur lst 1))
@@ -65,18 +76,23 @@
 
 ;; Alists and Plists
 
-(assert
- (equal
-  (match
-   '(:one 1 :two 2 :three 3)
-   ((plist :two a) a))
-  2)) ; because that's the value of :two in the plist
+(ert-deftest shadchen-match-plist ()
+  "Show plist matching working."
+  (assert
+   (equal
+    (match
+     '(:one 1 :two 2 :three 3)
+     ((plist :two a) a))
+    2))) ; because that's the value of :two in the plist
 
-(assert
- (equal
-  (match
-   '((a . 1)(b . 2)(c . 3))
-   ((alist 'c a) a))
-  3)) ; because that's the value of 'c in the alist
+(ert-deftest shadchen-match-alist ()
+  "Show alist matching working."
+  (assert
+   (equal
+    (match
+     '((a . 1)(b . 2)(c . 3))
+     ((alist 'c a) a))
+    3))) ; because that's the value of 'c in the alist
 
-;; 
+
+;;; tests.el ends here
