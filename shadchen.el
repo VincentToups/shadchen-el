@@ -299,6 +299,7 @@
 ;; [shadchen-el]:https://github.com/VincentToups/emacs-utils/blob/master/shadchen.el
 ;;
 
+(require 'cl)
 
 (defun shadchen:unique-symbols (lst)
   (let ((seen (list)))
