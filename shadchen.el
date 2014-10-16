@@ -193,7 +193,13 @@
 ;;
 ;;     (append P1 ... PN)
 ;;
-;; Like `concat` except for lists rather than strings.
+;; Like `concat` except for lists rather than strings:
+;;
+;;     (match
+;;        (number-sequence 1 10)
+;;      ((append (list 1) _ (list y)) y))  => 10
+;;
+;; the interveening numbers are matched away.
 ;;
 ;; Match-let
 ;; ---------
