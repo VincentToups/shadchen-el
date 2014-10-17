@@ -1,9 +1,10 @@
 ;;; shadchen.el --- pattern matching for elisp
 
-;; Version: 1.0
+;; Version: 1.2
 ;; Author: Vincent Toups
 ;; Maintainer: Vincent Toups
 ;; Tags: pattern matching, functional programming
+;; Contributors: Nic Ferrier
 
 ;;; Copyright 2012, Vincent Toups
 ;;; This program is distributed under the terms of the GNU Lesser 
@@ -98,6 +99,14 @@
 ;;
 ;; Matches <P1> - <PN> to elements in at list, as in the `LIST` pattern.
 ;; The final `<REST-PATTERN>` is matched against the rest of the list.
+;;
+;;     (PLIST key <pattern> ...)
+;; 
+;;     Matches a plist by matching each <pattern> against the key it is paired with.
+;;
+;;     (ALIST key <pattern> ...)
+;; 
+;;     Matches an alist by matching each <pattern> against the key it is paired with.
 ;;
 ;;     (QUOTE DATUM)
 ;;
