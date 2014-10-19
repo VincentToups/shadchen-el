@@ -1,6 +1,6 @@
 ;;; shadchen.el --- pattern matching for elisp
 
-;; Version: 1.2
+;; Version: 1.3
 ;; Author: Vincent Toups
 ;; Maintainer: Vincent Toups
 ;; Tags: pattern matching, functional programming
