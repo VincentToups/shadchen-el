@@ -1,6 +1,6 @@
 ;;; shadchen.el --- pattern matching for elisp
 
-;; Version: 1.2
+;; Version: 1.3
 ;; Author: Vincent Toups
 ;; Maintainer: Vincent Toups
 ;; Tags: pattern matching, functional programming
@@ -1346,8 +1346,8 @@ the matching expression from the body."
   (funcall (monad-bind *current-monad*) mv mf))
 (defun current-monad-return (v)
   (funcall (monad-return *current-monad*) v))
-(defun -> (v)
-  (current-monad-return v))
+;;(defun -> (v)
+;;  (current-monad-return v))
 (defun current-monad-plus (mv1 mv2)
   (funcall (monad-plus *current-monad*)
 		   mv1 mv2))
