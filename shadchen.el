@@ -1526,9 +1526,10 @@ the matching expression from the body."
 
 TYPE is either `:alist' or `:plist'."
   (lexical-let ((typ type)
-                (k key))
+                (k (intern key)))
     (lambda (kvlist)
       (case typ
+        (:struct (apply (symbol-function k) (list kvlist)))
         (:plist (plist-get kvlist k))
         (:alist (cdr-safe (assoc k kvlist)))))))
 
@@ -1542,6 +1543,20 @@ TYPE is either `:alist' or `:plist'."
              collect
                `(funcall (shadchen/extract ,k :alist) ,v))))
 
+
+(defun shadchen/struct-field (struct field)
+  "Helper to access FIELD in STRUCT."
+  (concat (symbol-name struct) "-" (symbol-name field)))
+
+(defpattern struct (name &rest accessor-pairs)
+  `(and (? (lambda (v)
+             (eq (aref v 0)
+                 (intern (concat "cl-struct-" ,(symbol-name name))))) _)
+        ,@(loop for (k v . rest) on accessor-pairs by #'cddr
+             collect
+               `(funcall (shadchen/extract
+                          ,(shadchen/struct-field name k) :struct)
+                         ,v))))
 
 (provide 'shadchen)
 
