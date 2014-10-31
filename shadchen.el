@@ -95,7 +95,7 @@
 ;; Matches a list of length N, then matches each pattern `<PN>` to the
 ;; elements of that list.
 ;;
-;;     (LIST-REST <P1> ... <PN> <REST-PATTERN)
+;;     (LIST-REST <P1> ... <PN> <REST-PATTERN>)
 ;;
 ;; Matches <P1> - <PN> to elements in at list, as in the `LIST` pattern.
 ;; The final `<REST-PATTERN>` is matched against the rest of the list.
