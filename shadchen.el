@@ -110,7 +110,7 @@
 ;;
 ;;     (ALIST key <pattern> ...)
 ;; 
-;;     Matches an alist by matching each <pattern> against the key it is paired with.
+;; Matches an alist by matching each <pattern> against the key it is paired with.
 ;;
 ;;     (QUOTE DATUM)
 ;;
