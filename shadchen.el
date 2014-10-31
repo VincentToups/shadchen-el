@@ -787,7 +787,7 @@ FORMS.  When a match is detected, its subsequent forms are executed as
 in a PROGN where the bindings implied by the match are in effect.  
 
 An error is thrown when no matches are found."
-  (declare (debug (form &rest sexp)))
+  (declare (debug (form &rest sexp))(indent 1))
   (let ((name (gensym "MATCH-VALUE-NAME-"))
         (current-match-form `(match ,value ,@forms)))
     `(let ((,name ,value)) 
