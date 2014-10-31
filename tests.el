@@ -94,5 +94,14 @@
      ((alist 'c a) a))
     3))) ; because that's the value of 'c in the alist
 
+(ert-deftest shadchen-funcall-find-if-example ()
+  "A good example of using `find-if' with funcall."
+  ;; We want to match only the first string element from the list...
+  (should
+   (equal
+    (match
+     `(1 2 sym "a string" 2 3 4)
+     ((funcall (lambda (l) (find-if 'stringp l)) a) a))
+    "a string")))
 
 ;;; tests.el ends here
