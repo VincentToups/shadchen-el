@@ -100,9 +100,13 @@
 ;; Matches <P1> - <PN> to elements in at list, as in the `LIST` pattern.
 ;; The final `<REST-PATTERN>` is matched against the rest of the list.
 ;;
+;;     (LIST* <P1> ... <PN> <REST-PATTERN>)
+;;
+;; LIST* is an alias for LIST-REST.
+;;
 ;;     (PLIST key <pattern> ...)
 ;; 
-;;     Matches a plist by matching each <pattern> against the key it is paired with.
+;; Matches a plist by matching each <pattern> against the key it is paired with.
 ;;
 ;;     (ALIST key <pattern> ...)
 ;; 
