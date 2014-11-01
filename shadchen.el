@@ -923,6 +923,7 @@ match, but only in tail position.
 
 At the moment, this is not checked at compile time, so unexpected
 results can occur if `recur` is used in another position.s"
+  (declare (debug (sexp &rest form))(indent 1))
   (let ((patterns (mapcar #'car binders))
         (recursion-sigil (gensym "recursion-sigil-"))
         (recur-args (gensym "recur-args-"))
@@ -948,6 +949,7 @@ results can occur if `recur` is used in another position.s"
 
 (defmacro* match-let* (binders &body body)
   "Like let* except patterns may appear at any location a binding symbol appears."
+  (declare (indent 1))
   (cond ((null binders)
          `(progn ,@body))
         (t
@@ -972,6 +974,7 @@ results can occur if `recur` is used in another position.
 
 Bindings are lexical via cl.el's lexical-let.  An alternative is
 to use Emacs 24 & >'s lexical binding mode with regular match-let."
+  (declare (indent 1))
   (let ((patterns (mapcar #'car binders))
         (recursion-sigil (gensym "recursion-sigil-"))
         (recur-args (gensym "recur-args-"))
