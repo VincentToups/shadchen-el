@@ -80,8 +80,7 @@
   "Show plist matching working."
   (assert
    (equal
-    (match
-     '(:one 1 :two 2 :three 3)
+    (match '(:one 1 :two 2 :three 3)
      ((plist :two a) a))
     2))) ; because that's the value of :two in the plist
 
@@ -89,9 +88,8 @@
   "Show alist matching working."
   (assert
    (equal
-    (match
-     '((a . 1)(b . 2)(c . 3))
-     ((alist 'c a) a))
+    (match '((a . 1)(b . 2)(c . 3))
+      ((alist 'c a) a))
     3))) ; because that's the value of 'c in the alist
 
 (ert-deftest shadchen-match-struct ()
