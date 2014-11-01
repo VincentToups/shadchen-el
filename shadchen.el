@@ -1526,7 +1526,7 @@ the matching expression from the body."
 
 TYPE is either `:alist' or `:plist'."
   (lexical-let ((typ type)
-                (k (intern key)))
+                (k key))
     (lambda (kvlist)
       (case typ
         (:struct (apply (symbol-function k) (list kvlist)))
