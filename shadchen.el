@@ -1,6 +1,6 @@
 ;;; shadchen.el --- pattern matching for elisp
 
-;; Version: 1.3
+;; Version: 1.4
 ;; Author: Vincent Toups
 ;; Maintainer: Vincent Toups
 ;; Tags: pattern matching, functional programming
@@ -95,18 +95,22 @@
 ;; Matches a list of length N, then matches each pattern `<PN>` to the
 ;; elements of that list.
 ;;
-;;     (LIST-REST <P1> ... <PN> <REST-PATTERN)
+;;     (LIST-REST <P1> ... <PN> <REST-PATTERN>)
 ;;
 ;; Matches <P1> - <PN> to elements in at list, as in the `LIST` pattern.
 ;; The final `<REST-PATTERN>` is matched against the rest of the list.
 ;;
+;;     (LIST* <P1> ... <PN> <REST-PATTERN>)
+;;
+;; LIST* is an alias for LIST-REST.
+;;
 ;;     (PLIST key <pattern> ...)
 ;; 
-;;     Matches a plist by matching each <pattern> against the key it is paired with.
+;; Matches a plist by matching each <pattern> against the key it is paired with.
 ;;
 ;;     (ALIST key <pattern> ...)
 ;; 
-;;     Matches an alist by matching each <pattern> against the key it is paired with.
+;; Matches an alist by matching each <pattern> against the key it is paired with.
 ;;
 ;;     (QUOTE DATUM)
 ;;
@@ -783,7 +787,7 @@ FORMS.  When a match is detected, its subsequent forms are executed as
 in a PROGN where the bindings implied by the match are in effect.  
 
 An error is thrown when no matches are found."
-  (declare (debug (form &rest sexp)))
+  (declare (debug (form &rest sexp))(indent 1))
   (let ((name (gensym "MATCH-VALUE-NAME-"))
         (current-match-form `(match ,value ,@forms)))
     `(let ((,name ,value)) 
@@ -919,6 +923,7 @@ match, but only in tail position.
 
 At the moment, this is not checked at compile time, so unexpected
 results can occur if `recur` is used in another position.s"
+  (declare (debug (sexp &rest form))(indent 1))
   (let ((patterns (mapcar #'car binders))
         (recursion-sigil (gensym "recursion-sigil-"))
         (recur-args (gensym "recur-args-"))
@@ -944,6 +949,7 @@ results can occur if `recur` is used in another position.s"
 
 (defmacro* match-let* (binders &body body)
   "Like let* except patterns may appear at any location a binding symbol appears."
+  (declare (indent 1))
   (cond ((null binders)
          `(progn ,@body))
         (t
@@ -968,6 +974,7 @@ results can occur if `recur` is used in another position.
 
 Bindings are lexical via cl.el's lexical-let.  An alternative is
 to use Emacs 24 & >'s lexical binding mode with regular match-let."
+  (declare (indent 1))
   (let ((patterns (mapcar #'car binders))
         (recursion-sigil (gensym "recursion-sigil-"))
         (recur-args (gensym "recur-args-"))
@@ -1525,6 +1532,7 @@ TYPE is either `:alist' or `:plist'."
                 (k key))
     (lambda (kvlist)
       (case typ
+        (:struct (apply (symbol-function k) (list kvlist)))
         (:plist (plist-get kvlist k))
         (:alist (cdr-safe (assoc k kvlist)))))))
 
@@ -1538,6 +1546,20 @@ TYPE is either `:alist' or `:plist'."
              collect
                `(funcall (shadchen/extract ,k :alist) ,v))))
 
+
+(defun shadchen/struct-field (struct field)
+  "Helper to access FIELD in STRUCT."
+  (concat (symbol-name struct) "-" (symbol-name field)))
+
+(defpattern struct (name &rest accessor-pairs)
+  `(and (? (lambda (v)
+             (eq (aref v 0)
+                 (intern (concat "cl-struct-" ,(symbol-name name))))) _)
+        ,@(loop for (k v . rest) on accessor-pairs by #'cddr
+             collect
+               `(funcall (shadchen/extract
+                          ,(shadchen/struct-field name k) :struct)
+                         ,v))))
 
 (provide 'shadchen)
 
